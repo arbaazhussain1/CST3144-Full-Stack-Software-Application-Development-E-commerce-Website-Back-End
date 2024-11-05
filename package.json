@@ -1,4 +1,6 @@
 {
+  "name": "Arbaaz Hussain",
+  "author": "CST3144-Full-Stack-Software-Application-Development-E-commerce-Website-Back-End ",
   "dependencies": {
     "express": "^5.0.0"
   }
