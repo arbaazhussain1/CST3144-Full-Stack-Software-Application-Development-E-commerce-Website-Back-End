@@ -1,7 +1,13 @@
 {
-  "name": "Arbaaz Hussain",
-  "author": "CST3144-Full-Stack-Software-Application-Development-E-commerce-Website-Back-End ",
+  "name": "arbaaz-hussain",
+  "author": "CST3144-Full-Stack-Software-Application-Development-E-commerce-Website-Back-End",
+  "private": true,
   "dependencies": {
-    "express": "^5.0.0"
+    "dotenv": "^16.4.5",
+    "express": "^5.0.1",
+    "morgan": "^1.10.0"
+  },
+  "scripts": {
+    "start": "node server.js"
   }
 }
