@@ -1,1 +1,4 @@
 node_modules
+.idea/vcs.xml
+.idea/modules.xml
+.idea/Arbaaz.iml
