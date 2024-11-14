@@ -27,9 +27,19 @@ let db; // Database variable to hold the database instance/object
 // Asynchronous MongoDB connection using Promises
 client
   .connect()
-  .then(() => {
+  .then(async () => {
     db = client.db(dbdbName);
-    console.log("MongoDB connected successfully"); // Initialise db object after successful connection
+    // console.log("MongoDB connected successfully"); // Initialise db object after successful connection
+    // console.log("Connected to database:", db.databaseName); // Log the connected database name for verification
+    console.log("MongoDB connected successfully to database:", db.databaseName);
+
+    // Log all collections in the database to verify "products" exists
+    const collections = await db.listCollections().toArray();
+    console.log("Available collections:", collections.map(c => c.name));
+
+    // Check if "products" collection has documents
+    const productsCount = await db.collection("products").countDocuments();
+    console.log(`Number of documents in 'products' collection: ${productsCount}`);
   })
   .catch((err) => {
     console.error("MongoDB connection failed", err); // Log connection errors

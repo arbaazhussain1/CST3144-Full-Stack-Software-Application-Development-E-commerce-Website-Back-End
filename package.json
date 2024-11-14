@@ -8,6 +8,7 @@
     "express": "^5.0.1",
     "mongodb": "^6.10.0",
     "morgan": "^1.10.0",
+    "mustache": "^4.2.0",
     "properties-reader": "^2.3.0"
   },
   "scripts": {
