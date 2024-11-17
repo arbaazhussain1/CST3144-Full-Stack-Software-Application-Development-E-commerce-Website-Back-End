@@ -83,6 +83,63 @@ app.get("/collections/:collectionName", async (req, res, next) => {
   }
 });
 
+
+// Retrieve a limited number of sorted documents from a collection
+app.get(
+  "/collections/:collectionName/:max/:sortAspect/:sortAscDesc",
+  async (req, res, next) => {
+    try {
+      // Parse and validate the 'max' parameter
+      const rawMax = req.params.max;
+      const max = parseInt(rawMax, 10);
+
+      console.log("Raw max parameter:", rawMax);
+      console.log("Parsed max parameter:", max);
+
+      if (isNaN(max) || max <= 0) {
+        return res
+          .status(400)
+          .send({ error: "'max' must be a positive integer." });
+      }
+
+      const sortDirection = req.params.sortAscDesc === "desc" ? -1 : 1;
+      const sortAspect = req.params.sortAspect;
+
+      // Check the total number of documents in the collection
+      const collectionCount = await req.collection.countDocuments();
+
+      console.log(`Total documents in collection: ${collectionCount}`);
+
+      if (max > collectionCount) {
+        return res.status(400).send({
+          error: `'max' cannot exceed the total number of documents in the collection (${collectionCount}).`,
+        });
+      }
+
+      console.log(
+        `Retrieving ${max} documents from ${
+          req.params.collectionName
+        }, sorted by ${sortAspect} in ${
+          sortDirection === 1 ? "ascending" : "descending"
+        } order`
+      );
+
+      // Query the collection
+      const results = await req.collection
+        .find({}) // Match all documents
+        .sort({ [sortAspect]: sortDirection }) // Apply dynamic sorting
+        .limit(max) // Apply limit
+        .toArray(); // Convert cursor to array
+
+      res.send(results); // Send results to the client
+    } catch (err) {
+      console.error("Error retrieving sorted/limited documents:", err);
+      next(err); // Pass error to middleware
+    }
+  }
+);
+// test for http://localhost:3000/collections/products/10/image/Asc
+
 // 404 error handler for undefined routes
 app.use(function (req, res) {
   res.status(404).send("File not found!");
