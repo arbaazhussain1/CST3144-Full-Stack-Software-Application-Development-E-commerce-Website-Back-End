@@ -35,11 +35,16 @@ client
 
     // Log all collections in the database to verify "products" exists
     const collections = await db.listCollections().toArray();
-    console.log("Available collections:", collections.map(c => c.name));
+    console.log(
+      "Available collections:",
+      collections.map((c) => c.name)
+    );
 
     // Check if "products" collection has documents
     const productsCount = await db.collection("products").countDocuments();
-    console.log(`Number of documents in 'products' collection: ${productsCount}`);
+    console.log(
+      `Number of documents in 'products' collection: ${productsCount}`
+    );
   })
   .catch((err) => {
     console.error("MongoDB connection failed", err); // Log connection errors
@@ -83,7 +88,6 @@ app.get("/collections/:collectionName", async (req, res, next) => {
   }
 });
 
-
 // Retrieve a limited number of sorted documents from a collection
 app.get(
   "/collections/:collectionName/:max/:sortAspect/:sortAscDesc",
@@ -105,8 +109,8 @@ app.get(
       const sortDirection = req.params.sortAscDesc === "desc" ? -1 : 1;
       const sortAspect = req.params.sortAspect;
 
-       // Define valid sortAspect fields
-       const validSortAspects = [
+      // Define valid sortAspect fields
+      const validSortAspects = [
         "id",
         "subject",
         "description",
@@ -120,9 +124,21 @@ app.get(
       // Validate the sortAspect
       if (!validSortAspects.includes(sortAspect)) {
         return res.status(400).send({
-          error: `'sortAspect' must be one of the following: ${validSortAspects.join(", ")}`,
+          error: `'sortAspect' must be one of the following: ${validSortAspects.join(
+            ", "
+          )}`,
         });
       }
+
+      const sortAscDesc = req.params.sortAscDesc.toLowerCase();
+
+      // Validate the sortAscDesc parameter
+      if (!["asc", "desc"].includes(sortAscDesc)) {
+        return res.status(400).send({
+          error: `'sortAscDesc' must be either 'asc' or 'desc'.`,
+        });
+      }
+
       // Check the total number of documents in the collection
       const collectionCount = await req.collection.countDocuments();
 
