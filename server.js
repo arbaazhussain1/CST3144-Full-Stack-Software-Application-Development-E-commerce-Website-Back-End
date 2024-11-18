@@ -105,6 +105,24 @@ app.get(
       const sortDirection = req.params.sortAscDesc === "desc" ? -1 : 1;
       const sortAspect = req.params.sortAspect;
 
+       // Define valid sortAspect fields
+       const validSortAspects = [
+        "id",
+        "subject",
+        "description",
+        "price",
+        "location",
+        "image",
+        "availableInventory",
+        "rating",
+      ];
+
+      // Validate the sortAspect
+      if (!validSortAspects.includes(sortAspect)) {
+        return res.status(400).send({
+          error: `'sortAspect' must be one of the following: ${validSortAspects.join(", ")}`,
+        });
+      }
       // Check the total number of documents in the collection
       const collectionCount = await req.collection.countDocuments();
 
