@@ -95,6 +95,13 @@ app.get(
     try {
       // Parse and validate the 'max' parameter
       const rawMax = req.params.max;
+
+      // Check if 'max' is a valid positive integer
+      if (!/^\d+$/.test(rawMax)) {
+        return res
+          .status(400)
+          .send({ error: "'max' must be a valid positive integer. It should contain only whole numbers greater than 0 (e.g., 1, 2, 3) and should not include decimals, letters, or special characters." });
+      }
       const max = parseInt(rawMax, 10);
 
       console.log("Raw max parameter:", rawMax);
