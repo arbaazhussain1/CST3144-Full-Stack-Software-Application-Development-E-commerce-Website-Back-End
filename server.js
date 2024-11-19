@@ -170,15 +170,27 @@ app.get(
 
       // Perform case-insensitive sorting in application code
       documents.sort((a, b) => {
-        const fieldA = a[sortAspect]?.toLowerCase() || "";
-        const fieldB = b[sortAspect]?.toLowerCase() || "";
+        const fieldA = a[sortAspect];
+        const fieldB = b[sortAspect];
 
-        if (fieldA < fieldB) return -1 * sortDirection;
-        if (fieldA > fieldB) return 1 * sortDirection;
-        return 0;
+        // Handle string fields (apply .toLowerCase())
+        if (typeof fieldA === "string" && typeof fieldB === "string") {
+          return fieldA.toLowerCase() < fieldB.toLowerCase()
+            ? -1 * sortDirection
+            : fieldA.toLowerCase() > fieldB.toLowerCase()
+            ? 1 * sortDirection
+            : 0;
+        }
+
+        // Handle numeric and other fields
+        return fieldA < fieldB
+          ? -1 * sortDirection
+          : fieldA > fieldB
+          ? 1 * sortDirection
+          : 0;
       });
 
-      // Limit results and send to client
+      // Limit results and send to clients
       res.send(documents.slice(0, max));
     } catch (err) {
       console.error("Error retrieving sorted/limited documents:", err);
