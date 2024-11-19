@@ -248,25 +248,48 @@ app.get(
         `Searching in collection: ${collectionName} with query: '${query}'`
       );
 
-      // Attempt to parse the query as a number
-      const numericQuery = parseFloat(query);
+      // Build a search pipeline for numeric and text fields
+      const pipeline = [
+        {
+          $match: {
+            $or: [
+              { subject: { $regex: query, $options: "i" } }, // Partial match in `subject`
+              { description: { $regex: query, $options: "i" } }, // Partial match in `description`
+              { location: { $regex: query, $options: "i" } }, // Partial match in `location`
+              { image: { $regex: query, $options: "i" } }, // Partial match in `image`
+              {
+                $expr: {
+                  $regexMatch: { input: { $toString: "$id" }, regex: query },
+                },
+              }, // Match in `id` (converted to string)
+              {
+                $expr: {
+                  $regexMatch: { input: { $toString: "$price" }, regex: query },
+                },
+              }, // Match in `price` (converted to string)
+              {
+                $expr: {
+                  $regexMatch: {
+                    input: { $toString: "$availableInventory" },
+                    regex: query,
+                  },
+                },
+              }, // Match in `availableInventory`
+              {
+                $expr: {
+                  $regexMatch: {
+                    input: { $toString: "$rating" },
+                    regex: query,
+                  },
+                },
+              }, // Match in `rating`
+            ],
+          },
+        },
+      ];
 
-      // Build a case-insensitive search condition for all relevant fields
-      const searchCriteria = {
-        $or: [
-          { id: numericQuery }, // Match in 'id' (only if numeric)
-          { subject: { $regex: query, $options: "i" } }, // Match in 'subject' field
-          { description: { $regex: query, $options: "i" } }, // Match in 'description' field
-          { price: numericQuery }, // Match in 'price' (only if numeric)
-          { location: { $regex: query, $options: "i" } }, // Match in 'location' field
-          { image: { $regex: query, $options: "i" } }, // Match in 'image' field
-          { availableInventory: numericQuery }, // Match in 'availableInventory' (only if numeric)
-          { rating: numericQuery }, // Match in 'rating' (only if numeric)
-        ],
-      };
-
-      // Execute the search query
-      const results = await req.collection.find(searchCriteria).toArray();
+      // Execute the aggregation pipeline
+      const results = await req.collection.aggregate(pipeline).toArray();
 
       // Check if any documents were found
       if (results.length === 0) {
