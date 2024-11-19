@@ -237,43 +237,53 @@ app.get("/collections/:collectionName/:id", async (req, res, next) => {
 // test for http://localhost:3000/collections/products/673361cda42587c540f10ca6
 
 // Route to search for documents in a collection based on a query
-app.get("/collections/:collectionName/search/:query", async (req, res, next) => {
-  try {
-    const collectionName = req.params.collectionName;
-    const query = req.params.query;
+app.get(
+  "/collections/:collectionName/search/:query",
+  async (req, res, next) => {
+    try {
+      const collectionName = req.params.collectionName;
+      const query = req.params.query;
 
-    console.log(`Searching in collection: ${collectionName} with query: '${query}'`);
+      console.log(
+        `Searching in collection: ${collectionName} with query: '${query}'`
+      );
 
-    // Attempt to parse the query as a number
-    const numericQuery = parseFloat(query);
+      // Attempt to parse the query as a number
+      const numericQuery = parseFloat(query);
 
-    // Build a case-insensitive search condition
-    const searchCriteria = {
-      $or: [
-        { title: { $regex: query, $options: "i" } }, // Match in 'title'
-        { description: { $regex: query, $options: "i" } }, // Match in 'description'
-        ...(isNaN(numericQuery) ? [] : [{ price: numericQuery }]), // Match 'price' only if the query is a valid number
-      ],
-    };
+      // Build a case-insensitive search condition for all relevant fields
+      const searchCriteria = {
+        $or: [
+          { id: numericQuery }, // Match in 'id' (only if numeric)
+          { subject: { $regex: query, $options: "i" } }, // Match in 'subject' field
+          { description: { $regex: query, $options: "i" } }, // Match in 'description' field
+          { price: numericQuery }, // Match in 'price' (only if numeric)
+          { location: { $regex: query, $options: "i" } }, // Match in 'location' field
+          { image: { $regex: query, $options: "i" } }, // Match in 'image' field
+          { availableInventory: numericQuery }, // Match in 'availableInventory' (only if numeric)
+          { rating: numericQuery }, // Match in 'rating' (only if numeric)
+        ],
+      };
 
-    // Execute the search query
-    const results = await req.collection.find(searchCriteria).toArray();
+      // Execute the search query
+      const results = await req.collection.find(searchCriteria).toArray();
 
-    // Check if any documents were found
-    if (results.length === 0) {
-      return res.status(404).send({
-        message: `No documents found matching the query '${query}'.`,
-      });
+      // Check if any documents were found
+      if (results.length === 0) {
+        return res.status(404).send({
+          message: `No documents found matching the query '${query}'.`,
+        });
+      }
+
+      console.log("Search results:", results);
+      // Return the search results
+      res.send(results);
+    } catch (err) {
+      console.error("Error performing search:", err);
+      next(err); // Pass the error to the next middleware for centralized error handling
     }
-
-    console.log("Search results:", results);
-    // Return the search results
-    res.send(results);
-  } catch (err) {
-    console.error("Error performing search:", err);
-    next(err); // Pass the error to the next middleware for centralized error handling
   }
-});
+);
 
 // 404 error handler for undefined routes
 app.use(function (req, res) {
