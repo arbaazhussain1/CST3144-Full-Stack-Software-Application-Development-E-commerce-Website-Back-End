@@ -100,7 +100,10 @@ app.get(
       if (!/^\d+$/.test(rawMax)) {
         return res
           .status(400)
-          .send({ error: "'max' must be a valid positive integer. It should contain only whole numbers greater than 0 (e.g., 1, 2, 3) and should not include decimals, letters, or special characters." });
+          .send({
+            error:
+              "'max' must be a valid positive integer. It should contain only whole numbers greater than 0 (e.g., 1, 2, 3) and should not include decimals, letters, or special characters.",
+          });
       }
       const max = parseInt(rawMax, 10);
 
@@ -164,15 +167,21 @@ app.get(
           sortDirection === 1 ? "ascending" : "descending"
         } order`
       );
+      // Query the collection and retrieve results
+      const documents = await req.collection.find({}).toArray();
 
-      // Query the collection
-      const results = await req.collection
-        .find({}) // Match all documents
-        .sort({ [sortAspect]: sortDirection }) // Apply dynamic sorting
-        .limit(max) // Apply limit
-        .toArray(); // Convert cursor to array
+      // Perform case-insensitive sorting in application code
+      documents.sort((a, b) => {
+        const fieldA = a[sortAspect]?.toLowerCase() || "";
+        const fieldB = b[sortAspect]?.toLowerCase() || "";
 
-      res.send(results); // Send results to the client
+        if (fieldA < fieldB) return -1 * sortDirection;
+        if (fieldA > fieldB) return 1 * sortDirection;
+        return 0;
+      });
+
+      // Limit results and send to client
+      res.send(documents.slice(0, max));
     } catch (err) {
       console.error("Error retrieving sorted/limited documents:", err);
       next(err); // Pass error to middleware
