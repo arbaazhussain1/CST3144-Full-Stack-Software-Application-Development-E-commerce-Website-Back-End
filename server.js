@@ -303,10 +303,90 @@ app.get(
       res.send(results);
     } catch (err) {
       console.error("Error performing search:", err);
-      next(err); // Pass the error to the next middleware for centralized error handling
+      next(err); // Pass the error to the next middleware for centralised error handling
     }
   }
 );
+
+app.post("/collections/:collectionName", async (req, res, next) => {
+  try {
+    const collectionName = req.params.collectionName;
+    const newDocument = req.body;
+
+    console.log(`Inserting into collection: ${collectionName}`);
+    console.log("New Document:", newDocument);
+
+    // Validate `req.body` to ensure it contains the required fields
+    if (!newDocument || typeof newDocument !== "object") {
+      return res.status(400).send({
+        error:
+          "Invalid document. The request body must be a valid JSON object.",
+      });
+    }
+
+    // Example validation for a product schema
+    const requiredFields = [
+      "id",
+      "subject",
+      "description",
+      "price",
+      "location",
+      "image",
+      "availableInventory",
+      "rating",
+    ];
+    const missingFields = requiredFields.filter(
+      (field) => !(field in newDocument)
+    );
+
+    if (missingFields.length > 0) {
+      return res.status(400).send({
+        error: `Missing required fields: ${missingFields.join(", ")}`,
+      });
+    }
+
+    if (typeof newDocument.price !== "number" || newDocument.price <= 0) {
+      return res.status(400).send({
+        error: "The `price` field must be a positive number.",
+      });
+    }
+
+    if (
+      typeof newDocument.availableInventory !== "number" ||
+      newDocument.availableInventory < 0
+    ) {
+      return res.status(400).send({
+        error: "The `availableInventory` field must be a non-negative number.",
+      });
+    }
+
+    if (
+      typeof newDocument.rating !== "number" ||
+      newDocument.rating < 1 ||
+      newDocument.rating > 5
+    ) {
+      return res.status(400).send({
+        error: "The `rating` field must be a number between 1 and 5.",
+      });
+    }
+
+    // Insert the validated document into the collection
+    const results = await req.collection.insertOne(newDocument);
+
+    console.log("Document inserted:", results.ops[0]);
+    res.status(201).send(results.ops[0]); // Send back the inserted document
+  } catch (err) {
+    console.error("Error inserting document:", err);
+
+    // Send a detailed error message in development (customize for production)
+    res.status(500).send({
+      error: "Internal Server Error",
+      details: err.message,
+    });
+
+    next(err); // Pass error to centralised error handler
+  }
+});
 
 // 404 error handler for undefined routes
 app.use(function (req, res) {
