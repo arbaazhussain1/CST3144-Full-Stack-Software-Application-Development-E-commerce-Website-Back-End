@@ -98,12 +98,10 @@ app.get(
 
       // Check if 'max' is a valid positive integer
       if (!/^\d+$/.test(rawMax)) {
-        return res
-          .status(400)
-          .send({
-            error:
-              "'max' must be a valid positive integer. It should contain only whole numbers greater than 0 (e.g., 1, 2, 3) and should not include decimals, letters, or special characters.",
-          });
+        return res.status(400).send({
+          error:
+            "'max' must be a valid positive integer. It should contain only whole numbers greater than 0 (e.g., 1, 2, 3) and should not include decimals, letters, or special characters.",
+        });
       }
       const max = parseInt(rawMax, 10);
 
@@ -189,6 +187,42 @@ app.get(
   }
 );
 // test for http://localhost:3000/collections/products/10/image/Asc
+
+app.get("/collections/:collectionName/:id", async (req, res, next) => {
+  try {
+    // Extract the collection name and ID from the request parameters
+    const collectionName = req.params.collectionName;
+    const id = req.params.id;
+
+    // Validate ObjectId format
+    if (!ObjectId.isValid(id)) {
+      return res
+        .status(400)
+        .send({ error: `'${id}' is not a valid ObjectId.` });
+    }
+
+    // Access the collection and find the document by ObjectId
+    const result = await req.collection.findOne({ _id: new ObjectId(id) });
+
+    // Check if the document was found
+    // If no document matches the given ID, return a 404 Not Found response
+    if (!result) {
+      return res
+        .status(404)
+        .send({ error: `Document with id '${id}' not found.` });
+    }
+
+    // If the document is found, send it back as the response
+    res.send(result);
+  } catch (err) {
+    // Log any unexpected errors that occur during execution
+    console.error("Error fetching document by ID:", err);
+    // Pass the error to the next middleware for centralized error handling
+    next(err);
+  }
+});
+
+// test for http://localhost:3000/collections/products/673361cda42587c540f10ca6
 
 // 404 error handler for undefined routes
 app.use(function (req, res) {
