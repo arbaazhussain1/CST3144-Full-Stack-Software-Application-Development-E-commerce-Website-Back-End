@@ -407,75 +407,112 @@ app.post("/collections/:collectionName", async (req, res, next) => {
   }
 });
 
-app.put("/collections/products/:productId", async (req, res, next) => {
+app.put("/collections/products", async (req, res, next) => {
   try {
-    const productId = parseInt(req.params.productId, 10); // Parse product ID as a number
+    const { productIds } = req.body; // Expecting an array of product IDs in the request body
 
-    console.log(`Restoring inventory for product ID: ${productId}`);
+    console.log(`Restoring inventory for product IDs: ${productIds}`);
 
-    // Validate numeric product ID
-    if (isNaN(productId)) {
-      return res.status(400).send({ error: "Invalid Product ID format." });
-    }
-
-    // Find all orders that include this product ID
-    const orders = await db
-      .collection("orders")
-      .find({ productsIDs: productId })
-      .toArray();
-
-    if (!orders || orders.length === 0) {
-      return res
-        .status(404)
-        .send({ error: `No orders found for product ID ${productId}.` });
-    }
-
-    console.log(
-      `Found ${orders.length} orders containing product ID: ${productId}`
-    );
-
-    // Calculate the total number of spaces to restore for this product
-    let totalRestoreAmount = 0;
-
-    orders.forEach((order) => {
-      const index = order.productsIDs.indexOf(productId); // Find the index of the product ID
-      if (index !== -1) {
-        totalRestoreAmount += order.numberOfSpaces[index]; // Add the corresponding number of spaces
-      }
-    });
-
-    if (totalRestoreAmount === 0) {
+    // Validate input
+    if (!Array.isArray(productIds) || productIds.length === 0) {
       return res.status(400).send({
-        error: `No inventory to restore for product ID ${productId}.`,
+        error:
+          "Invalid input. `productIds` must be a non-empty array of numbers.",
       });
     }
 
-    console.log(
-      `Total inventory to restore for product ID ${productId}: ${totalRestoreAmount}`
+    // Validate each product ID
+    const invalidIds = productIds.filter(
+      (id) => typeof id !== "number" || id <= 0
     );
-
-    // Restore the inventory for the specified product ID
-    const result = await db
-      .collection("products")
-      .updateOne(
-        { id: productId },
-        { $inc: { availableInventory: totalRestoreAmount } }
-      );
-
-    if (result.modifiedCount === 1) {
-      console.log(
-        `Successfully restored ${totalRestoreAmount} units to product ID: ${productId}`
-      );
-      res.send({
-        msg: "Inventory restored successfully",
-        productId,
-        restoredAmount: totalRestoreAmount,
-      });
-    } else {
-      res.status(404).send({
-        error: `Product with ID ${productId} not found in the products collection.`,
+    if (invalidIds.length > 0) {
+      return res.status(400).send({
+        error: `Invalid Product IDs: ${invalidIds.join(
+          ", "
+        )}. All IDs must be positive numbers.`,
       });
     }
+
+    const restorationResults = [];
+
+    // Loop through each product ID
+    for (const productId of productIds) {
+      console.log(`Processing product ID: ${productId}`);
+
+      // Find all orders containing this product ID
+      const orders = await db
+        .collection("orders")
+        .find({ productsIDs: productId })
+        .toArray();
+
+      if (!orders || orders.length === 0) {
+        console.log(`No orders found for product ID: ${productId}`);
+        restorationResults.push({
+          productId,
+          restoredAmount: 0,
+          status: "No orders found",
+        });
+        continue;
+      }
+
+      console.log(
+        `Found ${orders.length} orders containing product ID: ${productId}`
+      );
+
+      // Calculate total inventory to restore for this product ID
+      let totalRestoreAmount = 0;
+
+      orders.forEach((order) => {
+        const index = order.productsIDs.indexOf(productId); // Find the index of the product ID
+        if (index !== -1) {
+          totalRestoreAmount += order.numberOfSpaces[index]; // Add the corresponding number of spaces
+        }
+      });
+
+      if (totalRestoreAmount === 0) {
+        console.log(`No inventory to restore for product ID: ${productId}`);
+        restorationResults.push({
+          productId,
+          restoredAmount: 0,
+          status: "No inventory to restore",
+        });
+        continue;
+      }
+
+      console.log(
+        `Total inventory to restore for product ID ${productId}: ${totalRestoreAmount}`
+      );
+
+      // Restore the inventory for the specified product ID
+      const result = await db.collection("products").updateOne(
+        { id: productId },
+        { $inc: { availableInventory: totalRestoreAmount } } // Increment the inventory
+      );
+
+      if (result.matchedCount === 1) {
+        console.log(
+          `Successfully restored ${totalRestoreAmount} units to product ID: ${productId}`
+        );
+        restorationResults.push({
+          productId,
+          restoredAmount: totalRestoreAmount,
+          status: "Inventory restored successfully",
+        });
+      } else {
+        console.log(`Failed to restore inventory for product ID: ${productId}`);
+        restorationResults.push({
+          productId,
+          restoredAmount: 0,
+          status: "Product not found",
+        });
+      }
+    }
+
+    // Respond with the restoration results
+    res.send({
+      msg: "Inventory restoration completed",
+      results: restorationResults,
+    });
   } catch (err) {
     console.error("Error restoring inventory:", err);
     res.status(500).send({
