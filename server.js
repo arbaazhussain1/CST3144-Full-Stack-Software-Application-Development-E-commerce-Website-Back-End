@@ -311,21 +311,47 @@ app.get(
 app.post("/collections/:collectionName", async (req, res, next) => {
   try {
     const collectionName = req.params.collectionName;
-    const newDocument = req.body;
+    const { user, product } = req.body;
 
     console.log(`Inserting into collection: ${collectionName}`);
-    console.log("New Document:", newDocument);
+    console.log("User Data:", user);
+    console.log("Product Data:", product);
 
-    // Validate `req.body` to ensure it contains the required fields
-    if (!newDocument || typeof newDocument !== "object") {
+    // Validate `user` fields
+    const requiredUserFields = ["firstName", "lastName", "phoneNumber"];
+    const missingUserFields = requiredUserFields.filter(
+      (field) => !(field in user)
+    );
+    if (missingUserFields.length > 0) {
       return res.status(400).send({
-        error:
-          "Invalid document. The request body must be a valid JSON object.",
+        error: `Missing required user fields: ${missingUserFields.join(", ")}`,
       });
     }
 
-    // Example validation for a product schema
-    const requiredFields = [
+    // Additional validation for `user` fields
+    if (typeof user.firstName !== "string" || user.firstName.trim() === "") {
+      return res.status(400).send({
+        error: "Invalid `firstName`. It must be a non-empty string.",
+      });
+    }
+    if (typeof user.lastName !== "string" || user.lastName.trim() === "") {
+      return res.status(400).send({
+        error: "Invalid `lastName`. It must be a non-empty string.",
+      });
+    }
+    if (
+      typeof user.phoneNumber !== "string" ||
+      user.phoneNumber.trim().length < 10 ||
+      !/^\d+$/.test(user.phoneNumber)
+    ) {
+      return res.status(400).send({
+        error:
+          "Invalid `phoneNumber`. It must be a string of at least 10 digits containing only numbers.",
+      });
+    }
+
+    // Validate `product` fields
+    const requiredProductFields = [
       "id",
       "subject",
       "description",
@@ -335,56 +361,60 @@ app.post("/collections/:collectionName", async (req, res, next) => {
       "availableInventory",
       "rating",
     ];
-    const missingFields = requiredFields.filter(
-      (field) => !(field in newDocument)
+    const missingProductFields = requiredProductFields.filter(
+      (field) => !(field in product)
     );
-
-    if (missingFields.length > 0) {
+    if (missingProductFields.length > 0) {
       return res.status(400).send({
-        error: `Missing required fields: ${missingFields.join(", ")}`,
+        error: `Missing required product fields: ${missingProductFields.join(
+          ", "
+        )}`,
       });
     }
 
-    if (typeof newDocument.price !== "number" || newDocument.price <= 0) {
+    // Additional validation for `product` fields
+    if (typeof product.price !== "number" || product.price <= 0) {
       return res.status(400).send({
         error: "The `price` field must be a positive number.",
       });
     }
-
     if (
-      typeof newDocument.availableInventory !== "number" ||
-      newDocument.availableInventory < 0
+      typeof product.availableInventory !== "number" ||
+      product.availableInventory < 0
     ) {
       return res.status(400).send({
         error: "The `availableInventory` field must be a non-negative number.",
       });
     }
-
     if (
-      typeof newDocument.rating !== "number" ||
-      newDocument.rating < 1 ||
-      newDocument.rating > 5
+      typeof product.rating !== "number" ||
+      product.rating < 1 ||
+      product.rating > 5
     ) {
       return res.status(400).send({
         error: "The `rating` field must be a number between 1 and 5.",
       });
     }
 
+    // Prepare the combined document
+    const newDocument = { user, product, orderDate: new Date() };
+
     // Insert the validated document into the collection
     const results = await req.collection.insertOne(newDocument);
 
-    console.log("Document inserted:", results.ops[0]);
-    res.status(201).send(results.ops[0]); // Send back the inserted document
+    // Log and send the result back to the client
+    if (results.insertedId) {
+      console.log("Document inserted successfully:", results.insertedId);
+      res.status(201).send({ _id: results.insertedId, ...newDocument });
+    } else {
+      res.status(500).send({ error: "Failed to insert document." });
+    }
   } catch (err) {
     console.error("Error inserting document:", err);
-
-    // Send a detailed error message in development (customize for production)
     res.status(500).send({
       error: "Internal Server Error",
       details: err.message,
     });
-
-    next(err); // Pass error to centralised error handler
   }
 });
 
