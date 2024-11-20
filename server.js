@@ -311,33 +311,35 @@ app.get(
 app.post("/collections/:collectionName", async (req, res, next) => {
   try {
     const collectionName = req.params.collectionName;
-    const { user, product } = req.body;
+    const { user, productsIDs, numberOfSpaces } = req.body;
 
     console.log(`Inserting into collection: ${collectionName}`);
     console.log("User Data:", user);
-    console.log("Product Data:", product);
+    console.log("Products IDs:", productsIDs);
+    console.log("Number of Spaces:", numberOfSpaces);
 
     // Validate `user` fields
     const requiredUserFields = ["firstName", "lastName", "phoneNumber"];
     const missingUserFields = requiredUserFields.filter(
       (field) => !(field in user)
     );
+
     if (missingUserFields.length > 0) {
       return res.status(400).send({
         error: `Missing required user fields: ${missingUserFields.join(", ")}`,
       });
     }
 
-    // Additional validation for `user` fields
+    // Validate user data
     if (typeof user.firstName !== "string" || user.firstName.trim() === "") {
-      return res.status(400).send({
-        error: "Invalid `firstName`. It must be a non-empty string.",
-      });
+      return res
+        .status(400)
+        .send({ error: "Invalid `firstName`. It must be a non-empty string." });
     }
     if (typeof user.lastName !== "string" || user.lastName.trim() === "") {
-      return res.status(400).send({
-        error: "Invalid `lastName`. It must be a non-empty string.",
-      });
+      return res
+        .status(400)
+        .send({ error: "Invalid `lastName`. It must be a non-empty string." });
     }
     if (
       typeof user.phoneNumber !== "string" ||
@@ -350,59 +352,51 @@ app.post("/collections/:collectionName", async (req, res, next) => {
       });
     }
 
-    // Validate `product` fields
-    const requiredProductFields = [
-      "id",
-      "subject",
-      "description",
-      "price",
-      "location",
-      "image",
-      "availableInventory",
-      "rating",
-    ];
-    const missingProductFields = requiredProductFields.filter(
-      (field) => !(field in product)
-    );
-    if (missingProductFields.length > 0) {
-      return res.status(400).send({
-        error: `Missing required product fields: ${missingProductFields.join(
-          ", "
-        )}`,
-      });
-    }
-
-    // Additional validation for `product` fields
-    if (typeof product.price !== "number" || product.price <= 0) {
-      return res.status(400).send({
-        error: "The `price` field must be a positive number.",
-      });
-    }
+    // Validate `productsIDs` and `numberOfSpaces`
     if (
-      typeof product.availableInventory !== "number" ||
-      product.availableInventory < 0
+      !Array.isArray(productsIDs) ||
+      !Array.isArray(numberOfSpaces) ||
+      productsIDs.length === 0 ||
+      numberOfSpaces.length === 0
     ) {
       return res.status(400).send({
-        error: "The `availableInventory` field must be a non-negative number.",
+        error: "`productsIDs` and `numberOfSpaces` must be non-empty arrays.",
       });
     }
-    if (
-      typeof product.rating !== "number" ||
-      product.rating < 1 ||
-      product.rating > 5
-    ) {
+
+    if (productsIDs.length !== numberOfSpaces.length) {
       return res.status(400).send({
-        error: "The `rating` field must be a number between 1 and 5.",
+        error:
+          "`productsIDs` and `numberOfSpaces` arrays must have the same length.",
       });
     }
 
-    // Prepare the combined document
-    const newDocument = { user, product, orderDate: new Date() };
+    // Validate each product ID and corresponding number of spaces
+    for (let i = 0; i < productsIDs.length; i++) {
+      if (typeof productsIDs[i] !== "number" || productsIDs[i] <= 0) {
+        return res.status(400).send({
+          error: `Invalid product ID at index ${i}. Must be a positive number.`,
+        });
+      }
+      if (typeof numberOfSpaces[i] !== "number" || numberOfSpaces[i] <= 0) {
+        return res.status(400).send({
+          error: `Invalid number of spaces at index ${i}. Must be a positive number.`,
+        });
+      }
+    }
 
-    // Insert the validated document into the collection
+    // Prepare the document
+    const newDocument = {
+      user,
+      productsIDs,
+      numberOfSpaces,
+      orderDate: new Date(),
+    };
+
+    // Insert the document into MongoDB
     const results = await req.collection.insertOne(newDocument);
 
-    // Log and send the result back to the client
+    // Respond with the inserted document
     if (results.insertedId) {
       console.log("Document inserted successfully:", results.insertedId);
       res.status(201).send({ _id: results.insertedId, ...newDocument });
