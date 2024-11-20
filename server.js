@@ -330,28 +330,6 @@ app.post("/collections/:collectionName", async (req, res, next) => {
       });
     }
 
-    // Validate user data
-    if (typeof user.firstName !== "string" || user.firstName.trim() === "") {
-      return res
-        .status(400)
-        .send({ error: "Invalid `firstName`. It must be a non-empty string." });
-    }
-    if (typeof user.lastName !== "string" || user.lastName.trim() === "") {
-      return res
-        .status(400)
-        .send({ error: "Invalid `lastName`. It must be a non-empty string." });
-    }
-    if (
-      typeof user.phoneNumber !== "string" ||
-      user.phoneNumber.trim().length < 10 ||
-      !/^\d+$/.test(user.phoneNumber)
-    ) {
-      return res.status(400).send({
-        error:
-          "Invalid `phoneNumber`. It must be a string of at least 10 digits containing only numbers.",
-      });
-    }
-
     // Validate `productsIDs` and `numberOfSpaces`
     if (
       !Array.isArray(productsIDs) ||
@@ -371,21 +349,39 @@ app.post("/collections/:collectionName", async (req, res, next) => {
       });
     }
 
-    // Validate each product ID and corresponding number of spaces
+    // Update inventory for each product
     for (let i = 0; i < productsIDs.length; i++) {
-      if (typeof productsIDs[i] !== "number" || productsIDs[i] <= 0) {
-        return res.status(400).send({
-          error: `Invalid product ID at index ${i}. Must be a positive number.`,
+      const productId = productsIDs[i];
+      const spaces = numberOfSpaces[i];
+
+      // Find the product in the `products` collection
+      const product = await db
+        .collection("products")
+        .findOne({ id: productId });
+
+      if (!product) {
+        return res.status(404).send({
+          error: `Product with ID ${productId} not found.`,
         });
       }
-      if (typeof numberOfSpaces[i] !== "number" || numberOfSpaces[i] <= 0) {
+
+      // Check if there's enough inventory
+      if (product.availableInventory < spaces) {
         return res.status(400).send({
-          error: `Invalid number of spaces at index ${i}. Must be a positive number.`,
+          error: `Not enough inventory for product ID ${productId}. Available: ${product.availableInventory}, Requested: ${spaces}`,
         });
       }
+
+      // Deduct inventory
+      await db
+        .collection("products")
+        .updateOne(
+          { id: productId },
+          { $inc: { availableInventory: -spaces } }
+        );
     }
 
-    // Prepare the document
+    // Insert the order into the target collection
     const newDocument = {
       user,
       productsIDs,
@@ -393,18 +389,17 @@ app.post("/collections/:collectionName", async (req, res, next) => {
       orderDate: new Date(),
     };
 
-    // Insert the document into MongoDB
     const results = await req.collection.insertOne(newDocument);
 
     // Respond with the inserted document
     if (results.insertedId) {
-      console.log("Document inserted successfully:", results.insertedId);
+      console.log("Order inserted successfully:", results.insertedId);
       res.status(201).send({ _id: results.insertedId, ...newDocument });
     } else {
-      res.status(500).send({ error: "Failed to insert document." });
+      res.status(500).send({ error: "Failed to insert order." });
     }
   } catch (err) {
-    console.error("Error inserting document:", err);
+    console.error("Error inserting order:", err);
     res.status(500).send({
       error: "Internal Server Error",
       details: err.message,
