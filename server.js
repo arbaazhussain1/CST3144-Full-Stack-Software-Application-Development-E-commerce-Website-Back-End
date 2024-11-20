@@ -407,47 +407,81 @@ app.post("/collections/:collectionName", async (req, res, next) => {
   }
 });
 
-app.put("/collections/:collectionName/:id", async (req, res, next) => {
+app.put("/collections/products/:productId", async (req, res, next) => {
   try {
-    const collectionName = req.params.collectionName;
-    const id = req.params.id;
-    const updateData = req.body;
+    const productId = parseInt(req.params.productId, 10); // Parse product ID as a number
 
-    console.log(`Updating document in collection: ${collectionName}`);
-    console.log(`Document ID: ${id}`);
-    console.log("Update Data:", updateData);
+    console.log(`Restoring inventory for product ID: ${productId}`);
 
-    // Validate ObjectId
-    if (!ObjectId.isValid(id)) {
-      return res.status(400).send({ error: "Invalid ObjectId format." });
+    // Validate numeric product ID
+    if (isNaN(productId)) {
+      return res.status(400).send({ error: "Invalid Product ID format." });
     }
 
-    // Validate req.body
-    if (
-      !updateData ||
-      typeof updateData !== "object" ||
-      Object.keys(updateData).length === 0
-    ) {
-      return res.status(400).send({ error: "Invalid or empty update data." });
+    // Find all orders that include this product ID
+    const orders = await db
+      .collection("orders")
+      .find({ productsIDs: productId })
+      .toArray();
+
+    if (!orders || orders.length === 0) {
+      return res
+        .status(404)
+        .send({ error: `No orders found for product ID ${productId}.` });
     }
 
-    // Update the document in the specified collection
-    const result = await req.collection.updateOne(
-      { _id: new ObjectId(id) }, // Match by ID
-      { $set: updateData }, // Update with new data
-      { safe: true, multi: false } // Options
+    console.log(
+      `Found ${orders.length} orders containing product ID: ${productId}`
     );
 
-    if (result.matchedCount === 1) {
-      console.log("Document updated successfully:", result);
-      res.send({ msg: "success" });
+    // Calculate the total number of spaces to restore for this product
+    let totalRestoreAmount = 0;
+
+    orders.forEach((order) => {
+      const index = order.productsIDs.indexOf(productId); // Find the index of the product ID
+      if (index !== -1) {
+        totalRestoreAmount += order.numberOfSpaces[index]; // Add the corresponding number of spaces
+      }
+    });
+
+    if (totalRestoreAmount === 0) {
+      return res.status(400).send({
+        error: `No inventory to restore for product ID ${productId}.`,
+      });
+    }
+
+    console.log(
+      `Total inventory to restore for product ID ${productId}: ${totalRestoreAmount}`
+    );
+
+    // Restore the inventory for the specified product ID
+    const result = await db
+      .collection("products")
+      .updateOne(
+        { id: productId },
+        { $inc: { availableInventory: totalRestoreAmount } }
+      );
+
+    if (result.modifiedCount === 1) {
+      console.log(
+        `Successfully restored ${totalRestoreAmount} units to product ID: ${productId}`
+      );
+      res.send({
+        msg: "Inventory restored successfully",
+        productId,
+        restoredAmount: totalRestoreAmount,
+      });
     } else {
-      console.log("No document found with the specified ID.");
-      res.status(404).send({ msg: "error", error: "Document not found." });
+      res.status(404).send({
+        error: `Product with ID ${productId} not found in the products collection.`,
+      });
     }
   } catch (err) {
-    console.error("Error updating document:", err);
-    next(err); // Pass error to the centralized error handler
+    console.error("Error restoring inventory:", err);
+    res.status(500).send({
+      error: "Internal Server Error",
+      details: err.message,
+    });
   }
 });
 
