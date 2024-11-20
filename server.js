@@ -418,6 +418,50 @@ app.post("/collections/:collectionName", async (req, res, next) => {
   }
 });
 
+app.put("/collections/:collectionName/:id", async (req, res, next) => {
+  try {
+    const collectionName = req.params.collectionName;
+    const id = req.params.id;
+    const updateData = req.body;
+
+    console.log(`Updating document in collection: ${collectionName}`);
+    console.log(`Document ID: ${id}`);
+    console.log("Update Data:", updateData);
+
+    // Validate ObjectId
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ error: "Invalid ObjectId format." });
+    }
+
+    // Validate req.body
+    if (
+      !updateData ||
+      typeof updateData !== "object" ||
+      Object.keys(updateData).length === 0
+    ) {
+      return res.status(400).send({ error: "Invalid or empty update data." });
+    }
+
+    // Update the document in the specified collection
+    const result = await req.collection.updateOne(
+      { _id: new ObjectId(id) }, // Match by ID
+      { $set: updateData }, // Update with new data
+      { safe: true, multi: false } // Options
+    );
+
+    if (result.matchedCount === 1) {
+      console.log("Document updated successfully:", result);
+      res.send({ msg: "success" });
+    } else {
+      console.log("No document found with the specified ID.");
+      res.status(404).send({ msg: "error", error: "Document not found." });
+    }
+  } catch (err) {
+    console.error("Error updating document:", err);
+    next(err); // Pass error to the centralized error handler
+  }
+});
+
 // 404 error handler for undefined routes
 app.use(function (req, res) {
   res.status(404).send("File not found!");
