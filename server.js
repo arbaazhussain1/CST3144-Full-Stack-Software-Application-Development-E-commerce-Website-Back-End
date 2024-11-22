@@ -1,5 +1,6 @@
 const express = require("express"); // Express framework for building web applications
 const PropertiesReader = require("properties-reader"); // Module to read properties file
+const http = require("http");
 const cors = require("cors"); // Enable Cross-Origin Resource Sharing
 const path = require("path"); // Module to work with file paths
 const morgan = require("morgan"); // HTTP request logger middleware
@@ -55,6 +56,23 @@ client
 var app = express();
 app.use(express.json()); // Middleware to parse JSON in requests
 app.use(morgan("short")); // Middleware for logging requests
+
+// Middleware to log additional request details
+app.use((request, response, next) => {
+  console.log("Request coming in: " + request.method + " to " + request.url);
+  console.log("Request IP: " + request.ip);
+  console.log("Request date: " + new Date());
+  next();
+});
+
+// // CORS configuration
+// const corsOptions = {
+//   origin: ['https://arbaazhussain1.github.io'], // Updated to allow new frontend origin.
+//   methods: ['GET', 'POST', 'PUT', 'DELETE'],    // Allow HTTP methods.
+//   allowedHeaders: ['Content-Type', 'Authorization'], // Allow headers.
+// };
+// app.use(cors(corsOptions));
+// app.options('*', cors(corsOptions)); // Handle preflight requests
 
 // Serve static files from the "public" and "public/Images" directories
 app.use(express.static(path.resolve(__dirname, "public")));
@@ -532,8 +550,7 @@ app.use(function (req, res) {
 //   console.log("App started on port 3000");
 // });
 
-
 const port = process.env.PORT || 3000;
-app.listen(port, function() {
- console.log("App started on port: " + port);
+app.listen(port, function () {
+  console.log("App started on port: " + port);
 });
