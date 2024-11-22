@@ -74,6 +74,15 @@ app.use((request, response, next) => {
 // app.use(cors(corsOptions));
 // app.options('*', cors(corsOptions)); // Handle preflight requests
 
+const corsOptions = {
+  origin: ['https://arbaazhussain1.github.io'], // Allow your frontend origin
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],    // Allow HTTP methods
+  allowedHeaders: ['Content-Type', 'Authorization'], // Allow specific headers
+};
+app.use(cors(corsOptions)); // Apply the CORS middleware
+app.options('*', cors(corsOptions)); // Handle preflight requests
+
+
 // Serve static files from the "public" and "public/Images" directories
 app.use(express.static(path.resolve(__dirname, "public")));
 app.use("/images", express.static(path.resolve(__dirname, "public/Images")));
