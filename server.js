@@ -65,14 +65,14 @@ app.use((request, response, next) => {
   next();
 });
 
-// // CORS configuration
-// const corsOptions = {
-//   origin: ['https://arbaazhussain1.github.io'], // Updated to allow new frontend origin.
-//   methods: ['GET', 'POST', 'PUT', 'DELETE'],    // Allow HTTP methods.
-//   allowedHeaders: ['Content-Type', 'Authorization'], // Allow headers.
-// };
-// app.use(cors(corsOptions));
-// app.options('*', cors(corsOptions)); // Handle preflight requests
+// CORS configuration
+const corsMethods = {
+  origin: ['https://arbaazhussain1.github.io'], // Updated to allow new frontend origin.
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],    // Allow HTTP methods.
+  allowedHeaders: ['Content-Type', 'Authorization'], // Allow headers.
+};
+app.use(cors(corsMethods));
+app.options('*', cors(corsMethods)); // Handle preflight requests
 
 // Serve static files from the "public" and "public/Images" directories
 app.use(express.static(path.resolve(__dirname, "public")));
