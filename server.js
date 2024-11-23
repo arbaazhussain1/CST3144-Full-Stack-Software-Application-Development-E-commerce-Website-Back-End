@@ -76,7 +76,6 @@ app.use((request, response, next) => {
 
 app.use(cors());
 
-
 // Serve static files from the "public" and "public/Images" directories
 app.use(express.static(path.resolve(__dirname, "public")));
 app.use("/images", express.static(path.resolve(__dirname, "public/Images")));
@@ -264,55 +263,33 @@ app.get(
     try {
       const collectionName = req.params.collectionName;
       const query = req.params.query;
+      const queryAsNumber = parseFloat(query); // Attempt to parse the query as a number
 
       console.log(
         `Searching in collection: ${collectionName} with query: '${query}'`
       );
 
-      // Build a search pipeline for numeric and text fields
+      // Build a search pipeline for text and numeric fields
       const pipeline = [
         {
           $match: {
             $or: [
-              { subject: { $regex: query, $options: "i" } }, // Partial match in `subject`
-              { description: { $regex: query, $options: "i" } }, // Partial match in `description`
-              { location: { $regex: query, $options: "i" } }, // Partial match in `location`
-              { image: { $regex: query, $options: "i" } }, // Partial match in `image`
-              {
-                $expr: {
-                  $regexMatch: { input: { $toString: "$id" }, regex: query },
-                },
-              }, // Match in `id` (converted to string)
-              {
-                $expr: {
-                  $regexMatch: { input: { $toString: "$price" }, regex: query },
-                },
-              }, // Match in `price` (converted to string)
-              {
-                $expr: {
-                  $regexMatch: {
-                    input: { $toString: "$availableInventory" },
-                    regex: query,
-                  },
-                },
-              }, // Match in `availableInventory`
-              {
-                $expr: {
-                  $regexMatch: {
-                    input: { $toString: "$rating" },
-                    regex: query,
-                  },
-                },
-              }, // Match in `rating`
+              { subject: { $regex: query, $options: "i" } }, // Match text in subject
+              { description: { $regex: query, $options: "i" } }, // Match text in description
+              { location: { $regex: query, $options: "i" } }, // Match text in location
+              ...(isNaN(queryAsNumber)
+                ? [] // Skip numeric matching if the query is not a number
+                : [
+                    { price: queryAsNumber }, // Match exact price
+                    { availableInventory: queryAsNumber }, // Match exact inventory
+                    { rating: queryAsNumber }, // Match exact rating
+                  ]),
             ],
           },
         },
       ];
 
-      // Execute the aggregation pipeline
       const results = await req.collection.aggregate(pipeline).toArray();
-
-      // Check if any documents were found
       if (results.length === 0) {
         return res.status(404).send({
           message: `No documents found matching the query '${query}'.`,
@@ -320,11 +297,10 @@ app.get(
       }
 
       console.log("Search results:", results);
-      // Return the search results
       res.send(results);
     } catch (err) {
       console.error("Error performing search:", err);
-      next(err); // Pass the error to the next middleware for centralised error handling
+      next(err); // Pass the error to the next middleware for centralized error handling
     }
   }
 );
