@@ -263,27 +263,28 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
     let query = req.params.query;
 
     // Escape special characters in the query for regex safety
-    query = query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+    const escapedQuery = query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 
-    console.log(`Searching in collection: ${collectionName} with query: '${query}'`);
+    console.log(`Searching in collection: ${collectionName} with query: '${escapedQuery}'`);
 
     // Build a search pipeline for text and numeric fields
     const pipeline = [
       {
         $match: {
           $or: [
-            { subject: { $regex: query, $options: "i" } }, // Match text in subject
-            { description: { $regex: query, $options: "i" } }, // Match text in description
-            { location: { $regex: query, $options: "i" } }, // Match text in location
-            { price: { $regex: query, $options: "i" } }, // Partial match in price as string
-            { availableInventory: { $regex: query, $options: "i" } }, // Partial match in inventory as string
-            { rating: { $regex: query, $options: "i" } }, // Partial match in rating as string
+            { subject: { $regex: `^${escapedQuery}`, $options: "i" } }, // Match text in subject starting with query
+            { description: { $regex: `^${escapedQuery}`, $options: "i" } }, // Match text in description starting with query
+            { location: { $regex: `^${escapedQuery}`, $options: "i" } }, // Match text in location starting with query
+            { price: { $regex: `^${escapedQuery}` } }, // Match price starting with query
+            { availableInventory: { $regex: `^${escapedQuery}` } }, // Match inventory starting with query
+            { rating: { $regex: `^${escapedQuery}` } }, // Match rating starting with query
           ],
         },
       },
     ];
 
     const results = await req.collection.aggregate(pipeline).toArray();
+
     if (results.length === 0) {
       return res.status(404).send({
         message: `No documents found matching the query '${query}'.`,
