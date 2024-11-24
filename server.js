@@ -261,30 +261,34 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
   try {
     const collectionName = req.params.collectionName;
     let query = req.params.query;
+    const queryAsNumber = parseFloat(query); // Attempt to parse the query as a number
 
     // Escape special characters in the query for regex safety
-    const escapedQuery = query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+    query = query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 
-    console.log(`Searching in collection: ${collectionName} with query: '${escapedQuery}'`);
+    console.log(`Searching in collection: ${collectionName} with query: '${query}'`);
 
     // Build a search pipeline for text and numeric fields
     const pipeline = [
       {
         $match: {
           $or: [
-            { subject: { $regex: `^${escapedQuery}`, $options: "i" } }, // Match text in subject starting with query
-            { description: { $regex: `^${escapedQuery}`, $options: "i" } }, // Match text in description starting with query
-            { location: { $regex: `^${escapedQuery}`, $options: "i" } }, // Match text in location starting with query
-            { price: { $regex: `^${escapedQuery}` } }, // Match price starting with query
-            { availableInventory: { $regex: `^${escapedQuery}` } }, // Match inventory starting with query
-            { rating: { $regex: `^${escapedQuery}` } }, // Match rating starting with query
+            { subject: { $regex: query, $options: "i" } }, // Match text in subject
+            { description: { $regex: query, $options: "i" } }, // Match text in description
+            { location: { $regex: query, $options: "i" } }, // Match text in location
+            ...(isNaN(queryAsNumber)
+              ? [] // Skip numeric matching if the query is not a number
+              : [
+                  { price: queryAsNumber }, // Match exact price
+                  { availableInventory: queryAsNumber }, // Match exact inventory
+                  { rating: queryAsNumber }, // Match exact rating
+                ]),
           ],
         },
       },
     ];
 
     const results = await req.collection.aggregate(pipeline).toArray();
-
     if (results.length === 0) {
       return res.status(404).send({
         message: `No documents found matching the query '${query}'.`,
@@ -298,7 +302,6 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
     next(err); // Pass the error to the next middleware for centralized error handling
   }
 });
-
 
 
 app.post("/collections/:collectionName", async (req, res, next) => {
