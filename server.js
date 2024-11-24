@@ -259,16 +259,16 @@ app.get("/collections/:collectionName/:id", async (req, res, next) => {
 // Route to search for documents in a collection based on a query
 app.get("/collections/:collectionName/search/:query", async (req, res, next) => {
   try {
-    const collectionName = req.params.collectionName;
-    let query = req.params.query; // Extract query parameter
-    const queryAsNumber = parseFloat(query); // Attempt to parse query as a number
+    const collectionName = req.params.collectionName; // Get the collection name
+    let query = req.params.query; // Extract the search query
+    const queryAsNumber = parseFloat(query); // Attempt to parse the query as a number
 
     // Escape special characters in the query for regex safety
     query = query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 
-    console.log(`Searching in collection: ${collectionName} with query: '${query}'`);
+    console.log(`Search Query: '${query}' as String, ${queryAsNumber} as Number`);
 
-    // Build search pipeline
+    // Build the aggregation pipeline
     const pipeline = [
       {
         $match: {
@@ -279,21 +279,12 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
             { location: { $regex: query, $options: "i" } }, // Match text in location
             { image: { $regex: query, $options: "i" } }, // Match text in image
 
-            // Exact numeric matching
-            ...(isNaN(queryAsNumber)
-              ? [] // Skip numeric matching if the query is not a valid number
-              : [
-                  { price: queryAsNumber }, // Exact match on price
-                  { availableInventory: queryAsNumber }, // Exact match on available inventory
-                  { rating: queryAsNumber }, // Exact match on rating
-                ]),
-
-            // Numeric partial matches using regex on string-converted fields
+            // Partial numeric matches as strings
             {
               $expr: {
                 $regexMatch: {
                   input: { $toString: "$price" }, // Convert price to string
-                  regex: query, // Use query as regex pattern
+                  regex: query, // Match substring
                 },
               },
             },
@@ -301,7 +292,7 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
               $expr: {
                 $regexMatch: {
                   input: { $toString: "$availableInventory" }, // Convert available inventory to string
-                  regex: query, // Use query as regex pattern
+                  regex: query, // Match substring
                 },
               },
             },
@@ -309,10 +300,19 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
               $expr: {
                 $regexMatch: {
                   input: { $toString: "$rating" }, // Convert rating to string
-                  regex: query, // Use query as regex pattern
+                  regex: query, // Match substring
                 },
               },
             },
+
+            // Exact numeric matches
+            ...(isNaN(queryAsNumber)
+              ? [] // Skip numeric matching if the query isn't a valid number
+              : [
+                  { price: queryAsNumber }, // Exact match for numeric price
+                  { availableInventory: queryAsNumber }, // Exact match for inventory
+                  { rating: queryAsNumber }, // Exact match for rating
+                ]),
           ],
         },
       },
@@ -324,20 +324,21 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
     // If no documents are found, return a 404 error with a message
     if (results.length === 0) {
       return res.status(404).send({
-        message: `No documents found matching the query '${query}'.`,
+        message: `No documents found for '${query}'.`,
       });
     }
 
-    console.log("Search results:", results);
+    console.log("Search Results:", results);
 
     // Return the search results
     res.send(results);
-  } catch (err) {
-    console.error("Error performing search:", err);
+  } catch (error) {
+    console.error("Error during search:", error);
     // Pass the error to the next middleware
-    next(err);
+    next(error);
   }
 });
+
 
 
 
