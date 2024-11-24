@@ -263,7 +263,7 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
     let query = req.params.query;
     const queryAsNumber = parseFloat(query); // Attempt to parse the query as a number
 
-    // Escape special characters in the query for regex safety
+    // Escape special characters in the query for regex safety, including parentheses
     query = query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 
     console.log(`Searching in collection: ${collectionName} with query: '${query}'`);
@@ -276,6 +276,33 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
             { subject: { $regex: query, $options: "i" } }, // Match text in subject
             { description: { $regex: query, $options: "i" } }, // Match text in description
             { location: { $regex: query, $options: "i" } }, // Match text in location
+            { image: { $regex: query, $options: "i" } }, // Match text in image
+            {
+              $expr: {
+                $regexMatch: { input: { $toString: "$id" }, regex: query },
+              },
+            }, // Match in `id` (converted to string)
+            {
+              $expr: {
+                $regexMatch: { input: { $toString: "$price" }, regex: query },
+              },
+            }, // Match in `price` (converted to string)
+            {
+              $expr: {
+                $regexMatch: {
+                  input: { $toString: "$availableInventory" },
+                  regex: query,
+                },
+              },
+            }, // Match in `availableInventory`
+            {
+              $expr: {
+                $regexMatch: {
+                  input: { $toString: "$rating" },
+                  regex: query,
+                },
+              },
+            }, // Match in `rating`
             ...(isNaN(queryAsNumber)
               ? [] // Skip numeric matching if the query is not a number
               : [
@@ -288,7 +315,10 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
       },
     ];
 
+    // Execute the aggregation pipeline
     const results = await req.collection.aggregate(pipeline).toArray();
+
+    // Check if any documents were found
     if (results.length === 0) {
       return res.status(404).send({
         message: `No documents found matching the query '${query}'.`,
@@ -296,12 +326,14 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
     }
 
     console.log("Search results:", results);
+    // Return the search results
     res.send(results);
   } catch (err) {
     console.error("Error performing search:", err);
     next(err); // Pass the error to the next middleware for centralized error handling
   }
 });
+
 
 
 app.post("/collections/:collectionName", async (req, res, next) => {
