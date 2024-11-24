@@ -260,56 +260,59 @@ app.get("/collections/:collectionName/:id", async (req, res, next) => {
 app.get("/collections/:collectionName/search/:query", async (req, res, next) => {
   try {
     const collectionName = req.params.collectionName;
-    let query = req.params.query;
-    const queryAsNumber = parseFloat(query); // Attempt to parse the query as a number
+    let query = req.params.query; // Extract query parameter
+    const queryAsNumber = parseFloat(query); // Attempt to parse query as a number
 
-    // Escape special characters in the query for regex safety, including parentheses
+    // Escape special characters in the query for regex safety
     query = query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 
     console.log(`Searching in collection: ${collectionName} with query: '${query}'`);
 
-    // Build a search pipeline for text and numeric fields
+    // Build search pipeline
     const pipeline = [
       {
         $match: {
           $or: [
+            // Text-based partial matches using regex
             { subject: { $regex: query, $options: "i" } }, // Match text in subject
             { description: { $regex: query, $options: "i" } }, // Match text in description
             { location: { $regex: query, $options: "i" } }, // Match text in location
             { image: { $regex: query, $options: "i" } }, // Match text in image
-            {
-              $expr: {
-                $regexMatch: { input: { $toString: "$id" }, regex: query },
-              },
-            }, // Match in `id` (converted to string)
-            {
-              $expr: {
-                $regexMatch: { input: { $toString: "$price" }, regex: query },
-              },
-            }, // Match in `price` (converted to string)
-            {
-              $expr: {
-                $regexMatch: {
-                  input: { $toString: "$availableInventory" },
-                  regex: query,
-                },
-              },
-            }, // Match in `availableInventory`
-            {
-              $expr: {
-                $regexMatch: {
-                  input: { $toString: "$rating" },
-                  regex: query,
-                },
-              },
-            }, // Match in `rating`
+
+            // Exact numeric matching
             ...(isNaN(queryAsNumber)
-              ? [] // Skip numeric matching if the query is not a number
+              ? [] // Skip numeric matching if the query is not a valid number
               : [
-                  { price: queryAsNumber }, // Match exact price
-                  { availableInventory: queryAsNumber }, // Match exact inventory
-                  { rating: queryAsNumber }, // Match exact rating
+                  { price: queryAsNumber }, // Exact match on price
+                  { availableInventory: queryAsNumber }, // Exact match on available inventory
+                  { rating: queryAsNumber }, // Exact match on rating
                 ]),
+
+            // Numeric partial matches using regex on string-converted fields
+            {
+              $expr: {
+                $regexMatch: {
+                  input: { $toString: "$price" }, // Convert price to string
+                  regex: query, // Use query as regex pattern
+                },
+              },
+            },
+            {
+              $expr: {
+                $regexMatch: {
+                  input: { $toString: "$availableInventory" }, // Convert available inventory to string
+                  regex: query, // Use query as regex pattern
+                },
+              },
+            },
+            {
+              $expr: {
+                $regexMatch: {
+                  input: { $toString: "$rating" }, // Convert rating to string
+                  regex: query, // Use query as regex pattern
+                },
+              },
+            },
           ],
         },
       },
@@ -318,7 +321,7 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
     // Execute the aggregation pipeline
     const results = await req.collection.aggregate(pipeline).toArray();
 
-    // Check if any documents were found
+    // If no documents are found, return a 404 error with a message
     if (results.length === 0) {
       return res.status(404).send({
         message: `No documents found matching the query '${query}'.`,
@@ -326,13 +329,16 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
     }
 
     console.log("Search results:", results);
+
     // Return the search results
     res.send(results);
   } catch (err) {
     console.error("Error performing search:", err);
-    next(err); // Pass the error to the next middleware for centralized error handling
+    // Pass the error to the next middleware
+    next(err);
   }
 });
+
 
 
 
