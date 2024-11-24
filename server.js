@@ -261,7 +261,6 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
   try {
     const collectionName = req.params.collectionName;
     let query = req.params.query;
-    const queryAsNumber = parseFloat(query); // Attempt to parse the query as a number
 
     // Escape special characters in the query for regex safety
     query = query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
@@ -276,13 +275,9 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
             { subject: { $regex: query, $options: "i" } }, // Match text in subject
             { description: { $regex: query, $options: "i" } }, // Match text in description
             { location: { $regex: query, $options: "i" } }, // Match text in location
-            ...(isNaN(queryAsNumber)
-              ? [] // Skip numeric matching if the query is not a number
-              : [
-                  { price: queryAsNumber }, // Match exact price
-                  { availableInventory: queryAsNumber }, // Match exact inventory
-                  { rating: queryAsNumber }, // Match exact rating
-                ]),
+            { price: { $regex: query, $options: "i" } }, // Partial match in price as string
+            { availableInventory: { $regex: query, $options: "i" } }, // Partial match in inventory as string
+            { rating: { $regex: query, $options: "i" } }, // Partial match in rating as string
           ],
         },
       },
@@ -302,6 +297,7 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
     next(err); // Pass the error to the next middleware for centralized error handling
   }
 });
+
 
 
 app.post("/collections/:collectionName", async (req, res, next) => {
