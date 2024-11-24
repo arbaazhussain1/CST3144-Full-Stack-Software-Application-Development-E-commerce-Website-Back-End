@@ -371,56 +371,49 @@ app.post("/collections/:collectionName", async (req, res, next) => {
   }
 });
 
-app.put("/collections/products", async (req, res, next) => {
+app.put("/collections/products", async (req, res) => {
   try {
-    const { productIds, restore } = req.body; // Expecting product IDs and a flag to restore stock
-    const operation = restore ? "restore" : "reduce";
+    const { productIds, quantities, restore } = req.body; // Expecting product IDs, quantities, and restore flag
 
-    console.log(`${operation === "reduce" ? "Reducing" : "Restoring"} stock for product IDs:`, productIds);
-
-    // Validate input
     if (!Array.isArray(productIds) || productIds.length === 0) {
       return res.status(400).send({
-        error: "Invalid input. `productIds` must be a non-empty array of numbers.",
+        error: "`productIds` must be a non-empty array of product IDs.",
       });
     }
 
-    const invalidIds = productIds.filter((id) => typeof id !== "number" || id <= 0);
-    if (invalidIds.length > 0) {
+    if (!Array.isArray(quantities) || quantities.length !== productIds.length) {
       return res.status(400).send({
-        error: `Invalid Product IDs: ${invalidIds.join(", ")}. All IDs must be positive numbers.`,
+        error:
+          "`quantities` must be an array of the same length as `productIds`.",
       });
     }
 
-    for (const productId of productIds) {
-      const product = await db.collection("products").findOne({ id: productId });
+    const adjustment = restore ? 1 : -1; // Determine operation (restore or reduce stock)
 
-      if (!product) {
-        return res.status(404).send({ error: `Product with ID ${productId} not found.` });
-      }
+    for (const [index, productId] of productIds.entries()) {
+      const quantity = quantities[index] * adjustment; // Calculate stock adjustment
 
-      const orders = await db.collection("orders").find({ productsIDs: productId }).toArray();
-
-      if (!orders || orders.length === 0) {
-        return res.status(404).send({ error: `No orders found for product ID: ${productId}` });
-      }
-
-      let totalStockChange = 0;
-      for (const order of orders) {
-        const index = order.productsIDs.indexOf(productId);
-        if (index !== -1) {
-          totalStockChange += order.numberOfSpaces[index];
-        }
-      }
-
-      const stockChange = restore ? totalStockChange : -totalStockChange;
-      await db.collection("products").updateOne(
-        { id: productId },
-        { $inc: { availableInventory: stockChange } }
+      const result = await db.collection("products").updateOne(
+        { id: productId }, // Match product by ID
+        { $inc: { availableInventory: quantity } } // Adjust inventory
       );
+
+      if (result.matchedCount === 0) {
+        console.warn(`Product with ID ${productId} not found.`);
+      } else {
+        console.log(
+          `${restore ? "Restocked" : "Deducted"} ${Math.abs(
+            quantity
+          )} units for Product ID ${productId}.`
+        );
+      }
     }
 
-    res.send({ message: `${operation} operation completed successfully.` });
+    res.send({
+      message: `${
+        restore ? "Restocking" : "Deduction"
+      } operation completed successfully.`,
+    });
   } catch (err) {
     console.error("Error in stock adjustment:", err);
     res.status(500).send({
@@ -429,7 +422,6 @@ app.put("/collections/products", async (req, res, next) => {
     });
   }
 });
-
 
 // 404 error handler for undefined routes
 app.use(function (req, res) {
