@@ -307,8 +307,8 @@ app.get(
 
 app.post("/collections/:collectionName", async (req, res, next) => {
   try {
-    const collectionName = req.params.collectionName;
-    const { user, productsIDs, numberOfSpaces } = req.body;
+    const collectionName = req.params.collectionName; // Target collection
+    const { user, productsIDs, numberOfSpaces } = req.body; // Order details
 
     console.log(`Inserting into collection: ${collectionName}`);
     console.log("User Data:", user);
@@ -346,52 +346,19 @@ app.post("/collections/:collectionName", async (req, res, next) => {
       });
     }
 
-    // Update inventory for each product
-    for (let i = 0; i < productsIDs.length; i++) {
-      const productId = productsIDs[i];
-      const spaces = numberOfSpaces[i];
-
-      // Find the product in the `products` collection
-      const product = await db
-        .collection("products")
-        .findOne({ id: productId });
-
-      if (!product) {
-        return res.status(404).send({
-          error: `Product with ID ${productId} not found.`,
-        });
-      }
-
-      // Check if there's enough inventory
-      if (product.availableInventory < spaces) {
-        return res.status(400).send({
-          error: `Not enough inventory for product ID ${productId}. Available: ${product.availableInventory}, Requested: ${spaces}`,
-        });
-      }
-
-      // Deduct inventory
-      await db
-        .collection("products")
-        .updateOne(
-          { id: productId },
-          { $inc: { availableInventory: -spaces } }
-        );
-    }
-
-    // Insert the order into the target collection
-    const newDocument = {
+    // Insert the order into the `orders` collection
+    const newOrder = {
       user,
       productsIDs,
       numberOfSpaces,
       orderDate: new Date(),
     };
 
-    const results = await req.collection.insertOne(newDocument);
+    const results = await req.collection.insertOne(newOrder);
 
-    // Respond with the inserted document
     if (results.insertedId) {
       console.log("Order inserted successfully:", results.insertedId);
-      res.status(201).send({ _id: results.insertedId, ...newDocument });
+      res.status(201).send({ _id: results.insertedId, ...newOrder });
     } else {
       res.status(500).send({ error: "Failed to insert order." });
     }
@@ -406,118 +373,63 @@ app.post("/collections/:collectionName", async (req, res, next) => {
 
 app.put("/collections/products", async (req, res, next) => {
   try {
-    const { productIds } = req.body; // Expecting an array of product IDs in the request body
+    const { productIds, restore } = req.body; // Expecting product IDs and a flag to restore stock
+    const operation = restore ? "restore" : "reduce";
 
-    console.log(`Restoring inventory for product IDs: ${productIds}`);
+    console.log(`${operation === "reduce" ? "Reducing" : "Restoring"} stock for product IDs:`, productIds);
 
     // Validate input
     if (!Array.isArray(productIds) || productIds.length === 0) {
       return res.status(400).send({
-        error:
-          "Invalid input. `productIds` must be a non-empty array of numbers.",
+        error: "Invalid input. `productIds` must be a non-empty array of numbers.",
       });
     }
 
-    // Validate each product ID
-    const invalidIds = productIds.filter(
-      (id) => typeof id !== "number" || id <= 0
-    );
+    const invalidIds = productIds.filter((id) => typeof id !== "number" || id <= 0);
     if (invalidIds.length > 0) {
       return res.status(400).send({
-        error: `Invalid Product IDs: ${invalidIds.join(
-          ", "
-        )}. All IDs must be positive numbers.`,
+        error: `Invalid Product IDs: ${invalidIds.join(", ")}. All IDs must be positive numbers.`,
       });
     }
 
-    const restorationResults = [];
-
-    // Loop through each product ID
     for (const productId of productIds) {
-      console.log(`Processing product ID: ${productId}`);
+      const product = await db.collection("products").findOne({ id: productId });
 
-      // Find all orders containing this product ID
-      const orders = await db
-        .collection("orders")
-        .find({ productsIDs: productId })
-        .toArray();
+      if (!product) {
+        return res.status(404).send({ error: `Product with ID ${productId} not found.` });
+      }
+
+      const orders = await db.collection("orders").find({ productsIDs: productId }).toArray();
 
       if (!orders || orders.length === 0) {
-        console.log(`No orders found for product ID: ${productId}`);
-        restorationResults.push({
-          productId,
-          restoredAmount: 0,
-          status: "No orders found",
-        });
-        continue;
+        return res.status(404).send({ error: `No orders found for product ID: ${productId}` });
       }
 
-      console.log(
-        `Found ${orders.length} orders containing product ID: ${productId}`
-      );
-
-      // Calculate total inventory to restore for this product ID
-      let totalRestoreAmount = 0;
-
-      orders.forEach((order) => {
-        const index = order.productsIDs.indexOf(productId); // Find the index of the product ID
+      let totalStockChange = 0;
+      for (const order of orders) {
+        const index = order.productsIDs.indexOf(productId);
         if (index !== -1) {
-          totalRestoreAmount += order.numberOfSpaces[index]; // Add the corresponding number of spaces
+          totalStockChange += order.numberOfSpaces[index];
         }
-      });
-
-      if (totalRestoreAmount === 0) {
-        console.log(`No inventory to restore for product ID: ${productId}`);
-        restorationResults.push({
-          productId,
-          restoredAmount: 0,
-          status: "No inventory to restore",
-        });
-        continue;
       }
 
-      console.log(
-        `Total inventory to restore for product ID ${productId}: ${totalRestoreAmount}`
-      );
-
-      // Restore the inventory for the specified product ID
-      const result = await db.collection("products").updateOne(
+      const stockChange = restore ? totalStockChange : -totalStockChange;
+      await db.collection("products").updateOne(
         { id: productId },
-        { $inc: { availableInventory: totalRestoreAmount } } // Increment the inventory
+        { $inc: { availableInventory: stockChange } }
       );
-
-      if (result.matchedCount === 1) {
-        console.log(
-          `Successfully restored ${totalRestoreAmount} units to product ID: ${productId}`
-        );
-        restorationResults.push({
-          productId,
-          restoredAmount: totalRestoreAmount,
-          status: "Inventory restored successfully",
-        });
-      } else {
-        console.log(`Failed to restore inventory for product ID: ${productId}`);
-        restorationResults.push({
-          productId,
-          restoredAmount: 0,
-          status: "Product not found",
-        });
-      }
     }
 
-    // Respond with the restoration results
-    res.send({
-      msg: "Inventory restoration completed",
-      results: restorationResults,
-    });
+    res.send({ message: `${operation} operation completed successfully.` });
   } catch (err) {
-    console.error("Error restoring inventory:", err);
+    console.error("Error in stock adjustment:", err);
     res.status(500).send({
       error: "Internal Server Error",
       details: err.message,
     });
   }
 });
+
 
 // 404 error handler for undefined routes
 app.use(function (req, res) {
