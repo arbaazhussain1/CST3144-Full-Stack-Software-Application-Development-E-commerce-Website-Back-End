@@ -257,53 +257,52 @@ app.get("/collections/:collectionName/:id", async (req, res, next) => {
 // test for http://localhost:3000/collections/products/673361cda42587c540f10ca6
 
 // Route to search for documents in a collection based on a query
-app.get(
-  "/collections/:collectionName/search/:query",
-  async (req, res, next) => {
-    try {
-      const collectionName = req.params.collectionName;
-      const query = req.params.query;
-      const queryAsNumber = parseFloat(query); // Attempt to parse the query as a number
+app.get("/collections/:collectionName/search/:query", async (req, res, next) => {
+  try {
+    const collectionName = req.params.collectionName;
+    let query = req.params.query;
+    const queryAsNumber = parseFloat(query); // Attempt to parse the query as a number
 
-      console.log(
-        `Searching in collection: ${collectionName} with query: '${query}'`
-      );
+    // Escape special characters in the query for regex safety
+    query = query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 
-      // Build a search pipeline for text and numeric fields
-      const pipeline = [
-        {
-          $match: {
-            $or: [
-              { subject: { $regex: query, $options: "i" } }, // Match text in subject
-              { description: { $regex: query, $options: "i" } }, // Match text in description
-              { location: { $regex: query, $options: "i" } }, // Match text in location
-              ...(isNaN(queryAsNumber)
-                ? [] // Skip numeric matching if the query is not a number
-                : [
-                    { price: queryAsNumber }, // Match exact price
-                    { availableInventory: queryAsNumber }, // Match exact inventory
-                    { rating: queryAsNumber }, // Match exact rating
-                  ]),
-            ],
-          },
+    console.log(`Searching in collection: ${collectionName} with query: '${query}'`);
+
+    // Build a search pipeline for text and numeric fields
+    const pipeline = [
+      {
+        $match: {
+          $or: [
+            { subject: { $regex: query, $options: "i" } }, // Match text in subject
+            { description: { $regex: query, $options: "i" } }, // Match text in description
+            { location: { $regex: query, $options: "i" } }, // Match text in location
+            ...(isNaN(queryAsNumber)
+              ? [] // Skip numeric matching if the query is not a number
+              : [
+                  { price: queryAsNumber }, // Match exact price
+                  { availableInventory: queryAsNumber }, // Match exact inventory
+                  { rating: queryAsNumber }, // Match exact rating
+                ]),
+          ],
         },
-      ];
+      },
+    ];
 
-      const results = await req.collection.aggregate(pipeline).toArray();
-      if (results.length === 0) {
-        return res.status(404).send({
-          message: `No documents found matching the query '${query}'.`,
-        });
-      }
-
-      console.log("Search results:", results);
-      res.send(results);
-    } catch (err) {
-      console.error("Error performing search:", err);
-      next(err); // Pass the error to the next middleware for centralized error handling
+    const results = await req.collection.aggregate(pipeline).toArray();
+    if (results.length === 0) {
+      return res.status(404).send({
+        message: `No documents found matching the query '${query}'.`,
+      });
     }
+
+    console.log("Search results:", results);
+    res.send(results);
+  } catch (err) {
+    console.error("Error performing search:", err);
+    next(err); // Pass the error to the next middleware for centralized error handling
   }
-);
+});
+
 
 app.post("/collections/:collectionName", async (req, res, next) => {
   try {
