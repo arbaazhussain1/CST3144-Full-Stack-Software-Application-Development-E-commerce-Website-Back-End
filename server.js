@@ -323,9 +323,8 @@ app.get("/collections/:collectionName/search/:query", async (req, res, next) => 
 
     // If no documents are found, return a 404 error with a message
     if (results.length === 0) {
-      return res.status(404).send({
-        message: `No documents found for '${query}'.`,
-      });
+      console.log(`No documents found for query: '${query}'.`);
+      return res.send([]); // Send an empty array
     }
 
     console.log("Search Results:", results);
