@@ -257,90 +257,91 @@ app.get("/collections/:collectionName/:id", async (req, res, next) => {
 // test for http://localhost:3000/collections/products/673361cda42587c540f10ca6
 
 // Route to search for documents in a collection based on a query
-app.get("/collections/:collectionName/search/:query", async (req, res, next) => {
-  try {
-    const collectionName = req.params.collectionName; // Get the collection name
-    let query = req.params.query; // Extract the search query
-    const queryAsNumber = parseFloat(query); // Attempt to parse the query as a number
+app.get(
+  "/collections/:collectionName/search/:query",
+  async (req, res, next) => {
+    try {
+      const collectionName = req.params.collectionName; // Get the collection name
+      let query = req.params.query; // Extract the search query
+      const queryAsNumber = parseFloat(query); // Attempt to parse the query as a number
 
-    // Escape special characters in the query for regex safety
-    query = query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+      // Escape special characters in the query for regex safety
+      query = query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 
-    console.log(`Search Query: '${query}' as String, ${queryAsNumber} as Number`);
+      console.log(
+        `Search Query: '${query}' as String, ${queryAsNumber} as Number`
+      );
 
-    // Build the aggregation pipeline
-    const pipeline = [
-      {
-        $match: {
-          $or: [
-            // Text-based partial matches using regex
-            { subject: { $regex: query, $options: "i" } }, // Match text in subject
-            { description: { $regex: query, $options: "i" } }, // Match text in description
-            { location: { $regex: query, $options: "i" } }, // Match text in location
-            { image: { $regex: query, $options: "i" } }, // Match text in image
+      // Build the aggregation pipeline
+      const pipeline = [
+        {
+          $match: {
+            $or: [
+              // Text-based partial matches using regex
+              { subject: { $regex: query, $options: "i" } }, // Match text in subject
+              { description: { $regex: query, $options: "i" } }, // Match text in description
+              { location: { $regex: query, $options: "i" } }, // Match text in location
+              { image: { $regex: query, $options: "i" } }, // Match text in image
 
-            // Partial numeric matches as strings
-            {
-              $expr: {
-                $regexMatch: {
-                  input: { $toString: "$price" }, // Convert price to string
-                  regex: query, // Match substring
+              // Partial numeric matches as strings
+              {
+                $expr: {
+                  $regexMatch: {
+                    input: { $toString: "$price" }, // Convert price to string
+                    regex: query, // Match substring
+                  },
                 },
               },
-            },
-            {
-              $expr: {
-                $regexMatch: {
-                  input: { $toString: "$availableInventory" }, // Convert available inventory to string
-                  regex: query, // Match substring
+              {
+                $expr: {
+                  $regexMatch: {
+                    input: { $toString: "$availableInventory" }, // Convert available inventory to string
+                    regex: query, // Match substring
+                  },
                 },
               },
-            },
-            {
-              $expr: {
-                $regexMatch: {
-                  input: { $toString: "$rating" }, // Convert rating to string
-                  regex: query, // Match substring
+              {
+                $expr: {
+                  $regexMatch: {
+                    input: { $toString: "$rating" }, // Convert rating to string
+                    regex: query, // Match substring
+                  },
                 },
               },
-            },
 
-            // Exact numeric matches
-            ...(isNaN(queryAsNumber)
-              ? [] // Skip numeric matching if the query isn't a valid number
-              : [
-                  { price: queryAsNumber }, // Exact match for numeric price
-                  { availableInventory: queryAsNumber }, // Exact match for inventory
-                  { rating: queryAsNumber }, // Exact match for rating
-                ]),
-          ],
+              // Exact numeric matches
+              ...(isNaN(queryAsNumber)
+                ? [] // Skip numeric matching if the query isn't a valid number
+                : [
+                    { price: queryAsNumber }, // Exact match for numeric price
+                    { availableInventory: queryAsNumber }, // Exact match for inventory
+                    { rating: queryAsNumber }, // Exact match for rating
+                  ]),
+            ],
+          },
         },
-      },
-    ];
+      ];
 
-    // Execute the aggregation pipeline
-    const results = await req.collection.aggregate(pipeline).toArray();
+      // Execute the aggregation pipeline
+      const results = await req.collection.aggregate(pipeline).toArray();
 
-    // If no documents are found, return a 404 error with a message
-    if (results.length === 0) {
-      console.log(`No documents found for query: '${query}'.`);
-      return res.send([]); // Send an empty array
+      // If no documents are found, return a 404 error with a message
+      if (results.length === 0) {
+        console.log(`No documents found for query: '${query}'.`);
+        return res.send([]); // Send an empty array
+      }
+
+      console.log("Search Results:", results);
+
+      // Return the search results
+      res.send(results);
+    } catch (error) {
+      console.error("Error during search:", error);
+      // Pass the error to the next middleware
+      next(error);
     }
-
-    console.log("Search Results:", results);
-
-    // Return the search results
-    res.send(results);
-  } catch (error) {
-    console.error("Error during search:", error);
-    // Pass the error to the next middleware
-    next(error);
   }
-});
-
-
-
-
+);
 
 app.post("/collections/:collectionName", async (req, res, next) => {
   try {
@@ -408,54 +409,43 @@ app.post("/collections/:collectionName", async (req, res, next) => {
   }
 });
 
-app.put("/collections/products", async (req, res) => {
+app.put("/collections/products/:id", async (req, res) => {
   try {
-    const { productIds, quantities, restore } = req.body; // Expecting product IDs, quantities, and restore flag
+    const productId = req.params.id; // Extract the product ID from the request URL
+    const updates = req.body; // Get the fields to update from the request body
 
-    if (!Array.isArray(productIds) || productIds.length === 0) {
-      return res.status(400).send({
-        error: "`productIds` must be a non-empty array of product IDs.",
-      });
+    // Validate that the ID is a valid ObjectId
+    if (!ObjectId.isValid(productId)) {
+      return res.status(400).send({ error: "Invalid product ID." });
     }
 
-    if (!Array.isArray(quantities) || quantities.length !== productIds.length) {
-      return res.status(400).send({
-        error:
-          "`quantities` must be an array of the same length as `productIds`.",
-      });
+    // Ensure the request body contains at least one field to update
+    if (!updates || Object.keys(updates).length === 0) {
+      return res.status(400).send({ error: "No updates provided." });
     }
 
-    const adjustment = restore ? 1 : -1; // Determine operation (restore or reduce stock)
+    // Update the product in the database
+    const result = await db.collection("products").updateOne(
+      { _id: new ObjectId(productId) }, // Find the product by ObjectId
+      { $set: updates } // Update only the fields provided in the request
+    );
 
-    for (const [index, productId] of productIds.entries()) {
-      const quantity = quantities[index] * adjustment; // Calculate stock adjustment
-
-      const result = await db.collection("products").updateOne(
-        { id: productId }, // Match product by ID
-        { $inc: { availableInventory: quantity } } // Adjust inventory
-      );
-
-      if (result.matchedCount === 0) {
-        console.warn(`Product with ID ${productId} not found.`);
-      } else {
-        console.log(
-          `${restore ? "Restocked" : "Deducted"} ${Math.abs(
-            quantity
-          )} units for Product ID ${productId}.`
-        );
-      }
+    // Check if a product was updated
+    if (result.matchedCount === 0) {
+      return res
+        .status(404)
+        .send({ error: `Product with ID '${productId}' not found.` });
     }
 
     res.send({
-      message: `${
-        restore ? "Restocking" : "Deduction"
-      } operation completed successfully.`,
+      message: `Product with ID '${productId}' updated successfully.`,
+      updatedFields: updates,
     });
-  } catch (err) {
-    console.error("Error in stock adjustment:", err);
+  } catch (error) {
+    console.error("Error updating product:", error);
     res.status(500).send({
-      error: "Internal Server Error",
-      details: err.message,
+      error: "An error occurred while updating the product.",
+      details: error.message,
     });
   }
 });
