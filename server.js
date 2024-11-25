@@ -514,19 +514,20 @@ app.put("/collections/products/:id", async (req, res) => {
     const productId = req.params.id;
     const { availableInventory } = req.body;
 
+    // Validate product ID
     if (!ObjectId.isValid(productId)) {
       return res.status(400).send({ error: "Invalid product ID." });
     }
 
-    if (typeof availableInventory !== "number" || availableInventory < 0) {
-      return res.status(400).send({
-        error: "Invalid availableInventory. It must be a non-negative number.",
-      });
+    // Validate availableInventory
+    if (typeof availableInventory !== "number") {
+      return res.status(400).send({ error: "Invalid inventory value." });
     }
 
+    // Atomically decrement inventory using MongoDB's $inc
     const result = await db.collection("products").updateOne(
       { _id: new ObjectId(productId) },
-      { $set: { availableInventory } }
+      { $inc: { availableInventory } } // Increment or decrement inventory
     );
 
     if (result.matchedCount === 0) {
@@ -535,18 +536,13 @@ app.put("/collections/products/:id", async (req, res) => {
         .send({ error: `Product with ID '${productId}' not found.` });
     }
 
-    res.send({
-      message: `Product with ID '${productId}' updated successfully.`,
-      updatedInventory: availableInventory,
-    });
+    res.send({ message: "Inventory updated successfully." });
   } catch (error) {
-    console.error("Error updating product:", error);
-    res.status(500).send({
-      error: "An error occurred while updating the product.",
-      details: error.message,
-    });
+    console.error("Error updating inventory:", error);
+    res.status(500).send({ error: "Failed to update inventory." });
   }
 });
+
 
 // 404 error handler for undefined routes
 app.use(function (req, res) {
