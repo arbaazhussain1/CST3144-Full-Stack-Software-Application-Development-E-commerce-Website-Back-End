@@ -409,19 +409,19 @@ app.post("/collections/:collectionName", async (req, res, next) => {
   }
 });
 
-app.put('/collections/products/:id', async (req, res) => {
+app.put("/collections/products/:id", async (req, res) => {
   try {
     const productId = req.params.id; // Extract the product ID from the request URL
     const updates = req.body; // Get the fields to update from the request body
 
     // Validate that the ID is a valid ObjectId
     if (!ObjectId.isValid(productId)) {
-      return res.status(400).send({ error: 'Invalid product ID.' });
+      return res.status(400).send({ error: "Invalid product ID." });
     }
 
     // Ensure the request body contains at least one field to update
     if (!updates || Object.keys(updates).length === 0) {
-      return res.status(400).send({ error: 'No updates provided.' });
+      return res.status(400).send({ error: "No updates provided." });
     }
 
     // Define validation rules with custom error messages
@@ -431,31 +431,40 @@ app.put('/collections/products/:id', async (req, res) => {
         errorMessage: 'The "id" field must be an integer.',
       },
       subject: {
-        validate: (value) => typeof value === 'string' && value.trim().length > 0,
+        validate: (value) =>
+          typeof value === "string" && value.trim().length > 0,
         errorMessage: 'The "subject" field must be a non-empty string.',
       },
       description: {
-        validate: (value) => typeof value === 'string',
+        validate: (value) => typeof value === "string",
         errorMessage: 'The "description" field must be a string.',
       },
       price: {
-        validate: (value) => typeof value === 'number' && value > 0,
+        validate: (value) => typeof value === "number" && value > 0,
         errorMessage: 'The "price" field must be a positive number.',
       },
       location: {
-        validate: (value) => typeof value === 'string' && value.trim().length > 0,
+        validate: (value) =>
+          typeof value === "string" && value.trim().length > 0,
         errorMessage: 'The "location" field must be a non-empty string.',
       },
       image: {
-        validate: (value) => typeof value === 'string' && value.startsWith('Images/') && value.split('/').length === 2 && value.split('/')[1].trim().length > 0,
-        errorMessage: 'The "image" field must be a string in the format "Images/<image_name>".',
+        validate: (value) =>
+          typeof value === "string" &&
+          value.startsWith("Images/") &&
+          value.split("/").length === 2 &&
+          value.split("/")[1].trim().length > 0,
+        errorMessage:
+          'The "image" field must be a string in the format "Images/<image_name>".',
       },
       availableInventory: {
         validate: (value) => Number.isInteger(value) && value >= 0,
-        errorMessage: 'The "availableInventory" field must be a non-negative integer.',
+        errorMessage:
+          'The "availableInventory" field must be a non-negative integer.',
       },
       rating: {
-        validate: (value) => Number.isInteger(value) && value >= 0 && value <= 5,
+        validate: (value) =>
+          Number.isInteger(value) && value >= 0 && value <= 5,
         errorMessage: 'The "rating" field must be an integer between 0 and 5.',
       },
     };
@@ -463,7 +472,9 @@ app.put('/collections/products/:id', async (req, res) => {
     // Validate each field in the updates object
     for (const [field, value] of Object.entries(updates)) {
       if (!(field in validationRules)) {
-        return res.status(400).send({ error: `Field '${field}' is not allowed.` });
+        return res
+          .status(400)
+          .send({ error: `Field '${field}' is not allowed.` });
       }
       if (!validationRules[field].validate(value)) {
         return res.status(400).send({
@@ -473,14 +484,16 @@ app.put('/collections/products/:id', async (req, res) => {
     }
 
     // Update the product in the database
-    const result = await db.collection('products').updateOne(
+    const result = await db.collection("products").updateOne(
       { _id: new ObjectId(productId) }, // Find the product by ObjectId
       { $set: updates } // Update only the fields provided in the request
     );
 
     // Check if a product was updated
     if (result.matchedCount === 0) {
-      return res.status(404).send({ error: `Product with ID '${productId}' not found.` });
+      return res
+        .status(404)
+        .send({ error: `Product with ID '${productId}' not found.` });
     }
 
     res.send({
@@ -488,15 +501,13 @@ app.put('/collections/products/:id', async (req, res) => {
       updatedFields: updates,
     });
   } catch (error) {
-    console.error('Error updating product:', error);
+    console.error("Error updating product:", error);
     res.status(500).send({
-      error: 'An error occurred while updating the product.',
+      error: "An error occurred while updating the product.",
       details: error.message,
     });
   }
 });
-
-
 
 // 404 error handler for undefined routes
 app.use(function (req, res) {
