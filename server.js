@@ -486,7 +486,7 @@ app.put("/collections/products/:id", async (req, res) => {
     // Update the product in the database
     const result = await db.collection("products").updateOne(
       { _id: new ObjectId(productId) }, // Find the product by ObjectId
-      { $set: updates } // Update only the fields provided in the request
+      { $inc: updates } // Update only the fields provided in the request
     );
 
     // Check if a product was updated
