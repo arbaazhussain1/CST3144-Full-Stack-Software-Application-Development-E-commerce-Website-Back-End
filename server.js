@@ -343,138 +343,71 @@ app.get(
   }
 );
 
-// app.post("/collections/:collectionName", async (req, res, next) => {
-//   try {
-//     const collectionName = req.params.collectionName; // Target collection
-//     const { user, productsIDs, numberOfSpaces } = req.body; // Order details
-
-//     console.log(`Inserting into collection: ${collectionName}`);
-//     console.log("User Data:", user);
-//     console.log("Products IDs:", productsIDs);
-//     console.log("Number of Spaces:", numberOfSpaces);
-
-//     // Validate `user` fields
-//     const requiredUserFields = ["firstName", "lastName", "phoneNumber"];
-//     const missingUserFields = requiredUserFields.filter(
-//       (field) => !(field in user)
-//     );
-
-//     if (missingUserFields.length > 0) {
-//       return res.status(400).send({
-//         error: `Missing required user fields: ${missingUserFields.join(", ")}`,
-//       });
-//     }
-
-//     // Validate `productsIDs` and `numberOfSpaces`
-//     if (
-//       !Array.isArray(productsIDs) ||
-//       !Array.isArray(numberOfSpaces) ||
-//       productsIDs.length === 0 ||
-//       numberOfSpaces.length === 0
-//     ) {
-//       return res.status(400).send({
-//         error: "`productsIDs` and `numberOfSpaces` must be non-empty arrays.",
-//       });
-//     }
-
-//     if (productsIDs.length !== numberOfSpaces.length) {
-//       return res.status(400).send({
-//         error:
-//           "`productsIDs` and `numberOfSpaces` arrays must have the same length.",
-//       });
-//     }
-
-//     // Insert the order into the `orders` collection
-//     const newOrder = {
-//       user,
-//       productsIDs,
-//       numberOfSpaces,
-//       orderDate: new Date(),
-//     };
-
-//     const results = await req.collection.insertOne(newOrder);
-
-//     if (results.insertedId) {
-//       console.log("Order inserted successfully:", results.insertedId);
-//       res.status(201).send({ _id: results.insertedId, ...newOrder });
-//     } else {
-//       res.status(500).send({ error: "Failed to insert order." });
-//     }
-//   } catch (err) {
-//     console.error("Error inserting order:", err);
-//     res.status(500).send({
-//       error: "Internal Server Error",
-//       details: err.message,
-//     });
-//   }
-// });
-// Route to submit an order and update product inventory
-app.post("/collections/orders", async (req, res, next) => {
+app.post("/collections/:collectionName", async (req, res, next) => {
   try {
-    const { user, productsIDs, quantities } = req.body; // Get user and cart data
+    const collectionName = req.params.collectionName; // Target collection
+    const { user, productsIDs, numberOfSpaces } = req.body; // Order details
 
-    if (!user || !productsIDs || !quantities) {
-      return res.status(400).send({ error: "Invalid order data provided." });
-    }
+    console.log(`Inserting into collection: ${collectionName}`);
+    console.log("User Data:", user);
+    console.log("Products IDs:", productsIDs);
+    console.log("Number of Spaces:", numberOfSpaces);
 
-    // Validate that productsIDs and quantities are arrays of the same length
-    if (!Array.isArray(productsIDs) || !Array.isArray(quantities) || productsIDs.length !== quantities.length) {
+    // Validate `user` fields
+    const requiredUserFields = ["firstName", "lastName", "phoneNumber"];
+    const missingUserFields = requiredUserFields.filter(
+      (field) => !(field in user)
+    );
+
+    if (missingUserFields.length > 0) {
       return res.status(400).send({
-        error: "'productsIDs' and 'quantities' must be arrays of the same length.",
+        error: `Missing required user fields: ${missingUserFields.join(", ")}`,
       });
     }
 
-    // Loop through each product and decrement its inventory
-    for (let i = 0; i < productsIDs.length; i++) {
-      const productId = productsIDs[i];
-      const quantity = quantities[i];
-
-      // Ensure valid product ID and quantity
-      if (!ObjectId.isValid(productId) || typeof quantity !== "number" || quantity <= 0) {
-        return res.status(400).send({
-          error: `Invalid product ID or quantity: ${productId}, ${quantity}`,
-        });
-      }
-
-      // Atomically decrement inventory
-      const result = await db.collection("products").updateOne(
-        { _id: new ObjectId(productId) },
-        { $inc: { availableInventory: -quantity } } // Decrease stock
-      );
-
-      if (result.matchedCount === 0) {
-        return res.status(404).send({
-          error: `Product with ID '${productId}' not found.`,
-        });
-      }
-
-      if (result.modifiedCount === 0) {
-        return res.status(500).send({
-          error: `Failed to update inventory for product '${productId}'.`,
-        });
-      }
+    // Validate `productsIDs` and `numberOfSpaces`
+    if (
+      !Array.isArray(productsIDs) ||
+      !Array.isArray(numberOfSpaces) ||
+      productsIDs.length === 0 ||
+      numberOfSpaces.length === 0
+    ) {
+      return res.status(400).send({
+        error: "`productsIDs` and `numberOfSpaces` must be non-empty arrays.",
+      });
     }
 
-    // Save the order to the database
+    if (productsIDs.length !== numberOfSpaces.length) {
+      return res.status(400).send({
+        error:
+          "`productsIDs` and `numberOfSpaces` arrays must have the same length.",
+      });
+    }
+
+    // Insert the order into the `orders` collection
     const newOrder = {
       user,
       productsIDs,
-      quantities,
+      numberOfSpaces,
       orderDate: new Date(),
     };
 
-    const orderResult = await db.collection("orders").insertOne(newOrder);
-    if (!orderResult.insertedId) {
-      return res.status(500).send({ error: "Failed to save order." });
-    }
+    const results = await req.collection.insertOne(newOrder);
 
-    res.status(201).send({ message: "Order placed successfully.", orderId: orderResult.insertedId });
-  } catch (error) {
-    console.error("Error processing order:", error);
-    res.status(500).send({ error: "Failed to process order." });
+    if (results.insertedId) {
+      console.log("Order inserted successfully:", results.insertedId);
+      res.status(201).send({ _id: results.insertedId, ...newOrder });
+    } else {
+      res.status(500).send({ error: "Failed to insert order." });
+    }
+  } catch (err) {
+    console.error("Error inserting order:", err);
+    res.status(500).send({
+      error: "Internal Server Error",
+      details: err.message,
+    });
   }
 });
-
 
 // app.put("/collections/products/:id", async (req, res) => {
 //   try {
