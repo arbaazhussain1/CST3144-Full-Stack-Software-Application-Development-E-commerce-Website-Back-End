@@ -30,8 +30,6 @@ client
   .connect()
   .then(async () => {
     db = client.db(dbdbName);
-    // console.log("MongoDB connected successfully"); // Initialise db object after successful connection
-    // console.log("Connected to database:", db.databaseName); // Log the connected database name for verification
     console.log("MongoDB connected successfully to database:", db.databaseName);
 
     // Log all collections in the database to verify "products" exists
@@ -209,8 +207,6 @@ app.get(
     }
   }
 );
-// test for http://localhost:3000/collections/products/10/image/Asc
-
 app.get("/collections/:collectionName/:id", async (req, res, next) => {
   try {
     // Extract the collection name and ID from the request parameters
@@ -244,8 +240,6 @@ app.get("/collections/:collectionName/:id", async (req, res, next) => {
     next(err);
   }
 });
-
-// test for http://localhost:3000/collections/products/673361cda42587c540f10ca6
 
 // Route to search for documents in a collection based on a query
 app.get(
@@ -333,7 +327,7 @@ app.get(
     }
   }
 );
-
+// Route to create a new document in a collection
 app.post("/collections/:collectionName", async (req, res, next) => {
   try {
     const collectionName = req.params.collectionName; // Target collection
@@ -399,7 +393,7 @@ app.post("/collections/:collectionName", async (req, res, next) => {
     });
   }
 });
-
+// Route to update a product in the "products" collection
 app.put("/collections/products/:id", async (req, res) => {
   try {
     const productId = req.params.id; // Extract the product ID from the request URL
