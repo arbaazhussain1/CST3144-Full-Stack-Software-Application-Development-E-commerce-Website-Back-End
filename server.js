@@ -414,6 +414,11 @@ app.put("/collections/products/:id", async (req, res) => {
     const productId = req.params.id; // Extract the product ID from the request URL
     const updates = req.body; // Get the fields to update from the request body
 
+    console.log("Received product ID:", productId);
+
+    if (!ObjectId.isValid(productId)) {
+      return res.status(400).send({ error: "Invalid product ID." });
+    }
     // Validate that the ID is a valid ObjectId
     if (!ObjectId.isValid(productId)) {
       return res.status(400).send({ error: "Invalid product ID." });
@@ -505,7 +510,14 @@ app.put("/collections/products/:id", async (req, res) => {
     res.status(500).send({
       error: "An error occurred while updating the product.",
       details: error.message,
+
+      
     });
+
+    
+      console.error("Error in PUT handler:", error);
+      res.status(500).send({ error: "Server error occurred." });
+    
   }
 });
 
