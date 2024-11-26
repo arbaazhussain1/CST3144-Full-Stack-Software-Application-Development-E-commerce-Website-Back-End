@@ -625,7 +625,7 @@ app.put("/collections/products/:id", async (req, res) => {
     const productId = req.params.id;
     const updates = req.body;
 
-    if (!ObjectId.isValid(productID)) {
+    if (!ObjectId.isValid(productId)) {
       return res.status(400).send({ error: "Invalid product ID." });
     }
 
