@@ -544,6 +544,9 @@ app.put("/collections/products/:id", async (req, res) => {
 });
 
 
+
+
+
 // 404 error handler for undefined routes
 app.use(function (req, res) {
   res.status(404).send("File not found!");
