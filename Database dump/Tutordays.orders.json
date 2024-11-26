@@ -1,0 +1,62 @@
+[{
+  "_id": {
+    "$oid": "67460e1347369c24c0685133"
+  },
+  "user": {
+    "firstName": "Arbaaz",
+    "lastName": "Hussain",
+    "phoneNumber": "12345678901",
+    "address": "road",
+    "city": "london",
+    "state": "CA",
+    "zip": "LN23 22",
+    "method": "Home",
+    "gift": true
+  },
+  "productsIDs": [
+    "673361cda42587c540f10ca4",
+    "673361cda42587c540f10cab",
+    "673361cda42587c540f10ca8",
+    "673361cda42587c540f10ca8"
+  ],
+  "numberOfSpaces": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "orderDate": {
+    "$date": "2024-11-26T18:06:11.385Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "67460ec847369c24c0685134"
+  },
+  "user": {
+    "firstName": "John",
+    "lastName": "Doe",
+    "phoneNumber": "12345678902",
+    "address": "123 Main Street",
+    "city": "New York",
+    "state": "AR",
+    "zip": 1001,
+    "method": "Business",
+    "gift": false
+  },
+  "productsIDs": [
+    "673361cda42587c540f10ca8",
+    "673361cda42587c540f10ca8",
+    "673361cda42587c540f10ca2",
+    "673361cda42587c540f10ca2"
+  ],
+  "numberOfSpaces": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "orderDate": {
+    "$date": "2024-11-26T18:09:12.626Z"
+  }
+}]
