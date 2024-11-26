@@ -724,7 +724,7 @@ app.put("/collections/products/:id", async (req, res) => {
     const updateOperations = {};
     if ("availableInventory" in updates) {
       // Handle inventory updates separately using $inc
-      updateOperations.$inc = { availableInventory: updates.availableInventory };
+      updateOperations.$set = { availableInventory: updates.availableInventory };
     }
 
     // Handle other updates using $set
